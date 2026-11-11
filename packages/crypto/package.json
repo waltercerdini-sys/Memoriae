@@ -1,0 +1,22 @@
+{
+  "name": "@memoriae/crypto",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Nucleo di cifratura di MEMORIAE: cassaforte, pacchetti destinatario, rilascio a due metà, recupero",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "libsodium-wrappers-sumo": "0.8.4",
+    "shamir-secret-sharing": "0.0.4"
+  },
+  "devDependencies": {
+    "@types/libsodium-wrappers-sumo": "0.7.8",
+    "@types/node": "^22.20.5",
+    "typescript": "5.6.3",
+    "vitest": "2.1.9"
+  }
+}

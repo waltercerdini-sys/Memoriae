@@ -1,0 +1,15 @@
+{
+  "name": "memoriae",
+  "private": true,
+  "description": "MEMORIAE – regia svizzera dell'eredità digitale",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
