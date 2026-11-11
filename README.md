@@ -18,14 +18,31 @@ Il documento di architettura completo è nel progetto Claude "Eredità digitale 
 | Cartella | Contenuto |
 | --- | --- |
 | `packages/crypto` | Nucleo di cifratura: cassaforte, voci, pacchetti destinatario, rilascio a due metà, recupero, impronta |
+| `packages/server` | Server: API (Fastify), schema del database (Drizzle, PostgreSQL), casi di attivazione, controllo periodico, catalogo fornitori |
 
 ## Comandi
 
 ```bash
 npm install
-npm test          # test di tutti i pacchetti
+npm test          # test di tutti i pacchetti (il server usa un Postgres in memoria)
 npm run typecheck # controllo dei tipi
+
+# Sviluppo locale del server
+cp .env.example .env
+docker compose up -d                       # Postgres 16
+npm run db:migrate -w @memoriae/server     # migrazioni + catalogo fornitori
+npm run dev -w @memoriae/server            # http://localhost:3000/health
 ```
+
+Ogni modifica su GitHub passa dai controlli automatici (tipi, test, migrazioni su Postgres).
+Hosting previsto: Infomaniak Public Cloud (Svizzera).
+
+## Regole del server
+
+- Il server riceve solo buste cifrate nel browser; le metà MEMORIAE delle chiavi stanno nel servizio di gestione chiavi, non nel database.
+- Un controllo periodico mancato **non** attiva nulla: avvisa i fiduciari.
+- Nessun rilascio senza verifica di un operatore e fine del periodo d'attesa (14 giorni decesso, 72 ore emergenza).
+- Il registro eventi non si può modificare né cancellare (vincolo nel database).
 
 ## Nucleo di cifratura in breve
 

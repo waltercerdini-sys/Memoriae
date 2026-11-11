@@ -1,0 +1,20 @@
+# Ambiente di sviluppo locale: solo il database.
+# Avvio: docker compose up -d   ·   poi: npm run db:migrate -w @memoriae/server
+services:
+  postgres:
+    image: postgres:16.6
+    environment:
+      POSTGRES_USER: memoriae
+      POSTGRES_PASSWORD: memoriae
+      POSTGRES_DB: memoriae
+    ports:
+      - "5432:5432"
+    volumes:
+      - memoriae-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U memoriae"]
+      interval: 5s
+      retries: 10
+
+volumes:
+  memoriae-pg:

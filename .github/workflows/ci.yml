@@ -1,0 +1,41 @@
+name: Controlli
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16.6
+        env:
+          POSTGRES_USER: memoriae
+          POSTGRES_PASSWORD: memoriae
+          POSTGRES_DB: memoriae
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U memoriae"
+          --health-interval 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://memoriae:memoriae@localhost:5432/memoriae
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Controllo dei tipi
+        run: npm run typecheck
+      - name: Test
+        run: npm test
+      - name: Migrazioni su Postgres vero
+        run: npm run db:migrate -w @memoriae/server
