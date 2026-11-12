@@ -2,6 +2,7 @@ import { buildApp } from './app';
 import { createPasskeyService } from './auth/passkeys';
 import { loadConfig, loadEnvFile } from './config';
 import { createDatabase } from './db/client';
+import { seedProviders } from './db/seed-providers';
 import { FileMailer } from './mail/mailer';
 import { LocalDiskBlobStore } from './storage/blobs';
 import { DevKeyCustody, loadDevMasterKey } from './storage/custody';
@@ -12,7 +13,12 @@ if (config.NODE_ENV === 'production') {
   // Le e-mail di sviluppo finiscono in un file: in produzione serve l'invio vero (SMTP), non ancora collegato.
   throw new Error('Produzione non ancora supportata: manca l\'invio e-mail via SMTP');
 }
-const { db, close } = createDatabase(config.DATABASE_URL);
+const { db, migrate, close } = createDatabase(config.DATABASE_URL);
+// Database integrato (prove sul proprio computer): si prepara da solo all'avvio.
+if (config.DATABASE_URL.startsWith('pglite:')) {
+  await migrate();
+  await seedProviders(db);
+}
 const app = buildApp({
   db,
   passkeys: createPasskeyService({ rpId: config.WEBAUTHN_RP_ID, rpName: 'MEMORIAE', origins: config.WEBAUTHN_ORIGINS }),

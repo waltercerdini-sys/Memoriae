@@ -22,6 +22,18 @@ Il documento di architettura completo è nel progetto Claude "Eredità digitale 
 | `packages/web` | App web (React, Vite): registrazione con passkey, codice di recupero, inventario cifrato nel browser |
 | `e2e/` | Prova completa nel browser con passkey virtuale di Chrome |
 
+## Provare l'app sul proprio computer (il modo più semplice)
+
+Serve solo **Node.js** (installer da https://nodejs.org, versione LTS). Poi, nella cartella del progetto:
+
+```bash
+npm install     # la prima volta
+npm run prova   # avvia tutto e apre il browser su http://localhost:5173
+```
+
+Non serve Postgres: i dati di prova stanno nella cartella `data/` (si può cancellare per ricominciare).
+Le e-mail (codici, inviti) compaiono nel terminale. Per fermare: Ctrl+C.
+
 ## Comandi
 
 ```bash

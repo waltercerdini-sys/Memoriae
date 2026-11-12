@@ -1,11 +1,12 @@
 {
   "name": "memoriae",
   "private": true,
-  "description": "MEMORIAE – regia svizzera dell'eredità digitale",
+  "description": "MEMORIAE \u2013 regia svizzera dell'eredit\u00e0 digitale",
   "workspaces": [
     "packages/*"
   ],
   "scripts": {
+    "prova": "node scripts/prova.mjs",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present"
   },

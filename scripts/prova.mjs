@@ -1,0 +1,90 @@
+/**
+ * Avvia MEMORIAE sul proprio computer per provarla, con un solo comando:  npm run prova
+ *
+ * Non serve installare Postgres: il database è una cartella (data/db) gestita da PGlite.
+ * Le e-mail non vengono spedite: compaiono qui nel terminale.
+ * Per fermare tutto: Ctrl+C.
+ */
+import { spawn } from 'node:child_process';
+import { mkdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+const data = join(root, 'data');
+mkdirSync(data, { recursive: true });
+
+const [major] = process.versions.node.split('.').map(Number);
+if (major < 20) {
+  console.error(`Serve Node.js 20 o più recente (hai la ${process.versions.node}). Scaricalo da https://nodejs.org`);
+  process.exit(1);
+}
+
+const env = {
+  ...process.env,
+  NODE_ENV: 'development',
+  DATABASE_URL: `pglite:${join(data, 'db')}`,
+  BLOB_DIR: join(data, 'file'),
+  MAIL_OUTBOX: join(data, 'posta.log'),
+  CUSTODY_KEY_FILE: join(data, 'custodia.key'),
+  LOG_LEVEL: 'warn',
+  HOST: 'localhost',
+};
+
+const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+const figli = [];
+function avvia(nome, args) {
+  const p = spawn(npm, args, { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32' });
+  const scrivi = (buf) => {
+    for (const riga of buf.toString().split('\n')) if (riga.trim()) console.log(`[${nome}] ${riga}`);
+  };
+  p.stdout.on('data', scrivi);
+  p.stderr.on('data', scrivi);
+  p.on('exit', (code) => {
+    if (code !== null && code !== 0) {
+      console.error(`\n[${nome}] si è fermato con un errore (codice ${code}). Copia le righe qui sopra e mandale a Claude.`);
+      ferma(code);
+    }
+  });
+  figli.push(p);
+}
+
+function ferma(code = 0) {
+  for (const p of figli) {
+    try {
+      // Ferma anche i processi avviati da npm (gruppo intero).
+      if (process.platform !== 'win32' && p.pid) process.kill(-p.pid, 'SIGTERM');
+      else p.kill('SIGTERM');
+    } catch {
+      // già fermo
+    }
+  }
+  process.exit(code);
+}
+for (const segnale of ['SIGINT', 'SIGTERM']) {
+  process.on(segnale, () => {
+    console.log('\nFermo MEMORIAE…');
+    ferma(0);
+  });
+}
+
+console.log('Avvio MEMORIAE (server e app)… il primo avvio può richiedere qualche secondo.');
+avvia('server', ['run', 'start', '-w', '@memoriae/server']);
+avvia('app', ['run', 'dev', '-w', '@memoriae/web']);
+
+// Quando entrambi rispondono, apre il browser.
+const url = 'http://localhost:5173';
+for (let i = 0; i < 60; i++) {
+  await new Promise((r) => setTimeout(r, 1000));
+  try {
+    const ok = (await fetch('http://localhost:3000/health')).ok && (await fetch(url)).ok;
+    if (ok) {
+      console.log(`\n✅ MEMORIAE è pronta: ${url}\n   Le e-mail di prova (codici, inviti) compariranno qui sotto.\n   Per fermare: Ctrl+C\n`);
+      if (process.platform === 'darwin') spawn('open', [url]);
+      break;
+    }
+  } catch {
+    // non ancora pronti
+  }
+  if (i === 59) console.log('Il server non risponde ancora: guarda gli errori qui sopra.');
+}
