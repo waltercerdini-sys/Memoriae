@@ -1,4 +1,12 @@
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
+
+/** Carica il file .env nella cartella principale del progetto, se esiste (le variabili già impostate vincono). */
+export function loadEnvFile(): void {
+  const path = fileURLToPath(new URL('../../../.env', import.meta.url));
+  if (existsSync(path)) process.loadEnvFile(path);
+}
 
 const ConfigSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),

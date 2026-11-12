@@ -1,9 +1,10 @@
 import { buildApp } from './app';
 import { createPasskeyService } from './auth/passkeys';
-import { loadConfig } from './config';
+import { loadConfig, loadEnvFile } from './config';
 import { createDatabase } from './db/client';
 import { LocalDiskBlobStore } from './storage/blobs';
 
+loadEnvFile();
 const config = loadConfig();
 const { db, close } = createDatabase(config.DATABASE_URL);
 const app = buildApp({
