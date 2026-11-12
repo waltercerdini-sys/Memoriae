@@ -7,3 +7,4 @@ coverage/
 .DS_Store
 data/
 e2e-screenshot/
+!.env.example
