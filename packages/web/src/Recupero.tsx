@@ -14,7 +14,7 @@ type Passo =
   | { n: 'nuova-passkey'; vaultId: string; vaultKey: Uint8Array; verificatore: string }
   | { n: 'password'; vaultId: string; vaultKey: Uint8Array; utente: Utente };
 
-export function Recupero(p: { onFatto: (vaultKey: Uint8Array, utente: Utente) => void; onAnnulla: () => void }) {
+export function Recupero(p: { onFatto: (vaultId: string, vaultKey: Uint8Array, utente: Utente) => void; onAnnulla: () => void }) {
   const [passo, setPasso] = useState<Passo>({ n: 'email' });
   const [errore, setErrore] = useState<string | null>(null);
   const [occupato, setOccupato] = useState(false);
@@ -150,7 +150,7 @@ export function Recupero(p: { onFatto: (vaultKey: Uint8Array, utente: Utente) =>
               const prf = reg.prf ?? (await prfOnly(reg.credentialId).catch(() => null));
               if (prf) {
                 await aggiungiAccesso(passo.vaultId, passo.vaultKey, { tipo: 'passkey', credentialId: reg.credentialId, prf });
-                p.onFatto(passo.vaultKey, r.utente);
+                p.onFatto(passo.vaultId, passo.vaultKey, r.utente);
               } else {
                 setPasso({ n: 'password', vaultId: passo.vaultId, vaultKey: passo.vaultKey, utente: r.utente });
               }
@@ -173,7 +173,7 @@ export function Recupero(p: { onFatto: (vaultKey: Uint8Array, utente: Utente) =>
         if (!ok) return;
         void esegui(async () => {
           await aggiungiAccesso(passo.vaultId, passo.vaultKey, { tipo: 'password', password: campo });
-          p.onFatto(passo.vaultKey, passo.utente);
+          p.onFatto(passo.vaultId, passo.vaultKey, passo.utente);
         });
       }}
     >

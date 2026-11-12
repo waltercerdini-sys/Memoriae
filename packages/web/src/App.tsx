@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, ApiError, type Utente } from './api';
-import { Inventario } from './Inventario';
+import { Inventario, type InvitoInSospeso } from './Inventario';
 import { Recupero } from './Recupero';
 import { apriConPasskey, apriConPassword, creaCassaforte, metodoPer, type SegretoAccesso } from './vault';
 import { createPasskey, passkeysSupported, prfOnly, usePasskey } from './webauthn';
@@ -10,17 +10,33 @@ type Schermata =
   | { nome: 'benvenuto' }
   | { nome: 'registrazione' }
   | { nome: 'password-nuova'; credentialId: string }
-  | { nome: 'codice'; codice: string; vaultKey: Uint8Array }
+  | { nome: 'codice'; codice: string; vaultId: string; vaultKey: Uint8Array }
   | { nome: 'accesso'; messaggio?: string }
   | { nome: 'password-apri' }
   | { nome: 'recupero' }
-  | { nome: 'inventario'; vaultKey: Uint8Array };
+  | { nome: 'inventario'; vaultId: string; vaultKey: Uint8Array };
 
 export function App() {
   const [s, setS] = useState<Schermata>({ nome: 'caricamento' });
   const [utente, setUtente] = useState<Utente | null>(null);
   const [errore, setErrore] = useState<string | null>(null);
   const [occupato, setOccupato] = useState(false);
+  const [invito, setInvito] = useState<InvitoInSospeso | null>(null);
+
+  // Collegamento d'invito ricevuto per e-mail: ?invito=<token>
+  useEffect(() => {
+    const token = new URLSearchParams(window.location.search).get('invito');
+    if (!token) return;
+    api
+      .invito(token)
+      .then((r) => setInvito({ token, proprietario: r.proprietario, ruolo: r.ruolo }))
+      .catch(() => setErrore('Questo invito non è più valido: chiedi a chi te l\'ha mandato di inviarlo di nuovo.'));
+  }, []);
+
+  const chiudiInvito = () => {
+    setInvito(null);
+    window.history.replaceState(null, '', window.location.pathname);
+  };
 
   useEffect(() => {
     api
@@ -46,8 +62,8 @@ export function App() {
   }
 
   async function completaCreazione(segreto: SegretoAccesso) {
-    const { vaultKey, codiceRecupero } = await creaCassaforte(segreto);
-    setS({ nome: 'codice', codice: codiceRecupero, vaultKey });
+    const { vaultId, vaultKey, codiceRecupero } = await creaCassaforte(segreto);
+    setS({ nome: 'codice', codice: codiceRecupero, vaultId, vaultKey });
   }
 
   const registra = (nome: string, email: string) =>
@@ -77,7 +93,7 @@ export function App() {
       }
       const remota = await api.cassaforte();
       const metodo = metodoPer(remota, a.credentialId);
-      if (metodo === 'passkey' && a.prf) setS({ nome: 'inventario', vaultKey: await apriConPasskey(remota, a.credentialId, a.prf) });
+      if (metodo === 'passkey' && a.prf) setS({ nome: 'inventario', vaultId: remota.id, vaultKey: await apriConPasskey(remota, a.credentialId, a.prf) });
       else if (metodo === 'password' || metodo === 'passkey') setS({ nome: 'password-apri' });
       else throw new Error('Nessun metodo per aprire la cassaforte da questo dispositivo');
     });
@@ -106,6 +122,15 @@ export function App() {
           </p>
         )}
         {s.nome === 'caricamento' && <p className="tenue">Un momento…</p>}
+        {invito && s.nome !== 'inventario' && (
+          <div className="riquadro evidenza">
+            <h2>{invito.proprietario} ti ha scelto</h2>
+            <p>
+              Per accettare serve una tua cassaforte MEMORIAE: è lì che riceverai, in modo sicuro, ciò che {invito.proprietario} ti
+              affiderà. Creala o accedi: subito dopo potrai accettare.
+            </p>
+          </div>
+        )}
         {s.nome === 'benvenuto' && (
           <Benvenuto supportato={passkeysSupported()} onCrea={() => setS({ nome: 'registrazione' })} onAccedi={() => setS({ nome: 'accesso' })} />
         )}
@@ -116,7 +141,7 @@ export function App() {
             onInvia={(password) => esegui(() => completaCreazione({ tipo: 'password', password }))}
           />
         )}
-        {s.nome === 'codice' && <CodiceRecupero codice={s.codice} onFatto={() => setS({ nome: 'inventario', vaultKey: s.vaultKey })} />}
+        {s.nome === 'codice' && <CodiceRecupero codice={s.codice} onFatto={() => setS({ nome: 'inventario', vaultId: s.vaultId, vaultKey: s.vaultKey })} />}
         {s.nome === 'accesso' && (
           <section className="passo">
             <h1>Apri la tua cassaforte</h1>
@@ -138,9 +163,9 @@ export function App() {
         {s.nome === 'recupero' && (
           <Recupero
             onAnnulla={() => setS({ nome: 'accesso' })}
-            onFatto={(vaultKey, u) => {
+            onFatto={(vaultId, vaultKey, u) => {
               setUtente(u);
-              setS({ nome: 'inventario', vaultKey });
+              setS({ nome: 'inventario', vaultId, vaultKey });
             }}
           />
         )}
@@ -150,12 +175,14 @@ export function App() {
             onInvia={(password) =>
               esegui(async () => {
                 const remota = await api.cassaforte();
-                setS({ nome: 'inventario', vaultKey: await apriConPassword(remota, password) });
+                setS({ nome: 'inventario', vaultId: remota.id, vaultKey: await apriConPassword(remota, password) });
               })
             }
           />
         )}
-        {s.nome === 'inventario' && utente && <Inventario vaultKey={s.vaultKey} utente={utente} />}
+        {s.nome === 'inventario' && utente && (
+          <Inventario vaultId={s.vaultId} vaultKey={s.vaultKey} utente={utente} invito={invito} onInvitoGestito={chiudiInvito} />
+        )}
       </main>
     </div>
   );

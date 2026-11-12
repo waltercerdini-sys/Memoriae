@@ -63,6 +63,26 @@ export interface Fornitore {
   fonte: string | null;
 }
 
+export type Ruolo = 'fiduciario' | 'destinatario' | 'fiduciario-destinatario';
+export type StatoInvito = 'da-invitare' | 'invitato' | 'accettato' | 'rifiutato' | 'revocato';
+
+export interface Persona {
+  id: string;
+  ruolo: Ruolo;
+  nome: string;
+  email: string | null;
+  statoInvito: StatoInvito;
+  chiavePubblica: string | null;
+  haMetaFiduciario: boolean;
+}
+
+export interface PacchettoRemoto {
+  destinatarioId: string;
+  ambito: 'decesso' | 'emergenza';
+  tipo: 'sealed-to-recipient' | 'release-only';
+  esterno: Envelope;
+}
+
 export const api = {
   io: () => call<{ utente: Utente; haCassaforte: boolean }>('GET', '/v1/io'),
   registrazioneOpzioni: (nome: string, email: string) =>
@@ -87,6 +107,21 @@ export const api = {
   voci: () => call<{ voci: VoceRemota[] }>('GET', '/v1/cassaforte/voci'),
   creaVoce: (v: { id: string; tipo: TipoVoce; emergenza: boolean; chiaveVoceCifrata: Envelope; contenuto: Envelope }) =>
     call<{ id: string }>('POST', '/v1/cassaforte/voci', v),
+  modificaVoce: (id: string, dati: { contenuto?: Envelope; emergenza?: boolean }) => call<{ ok: true }>('PATCH', `/v1/cassaforte/voci/${id}`, dati),
+  persone: () => call<{ persone: Persona[] }>('GET', '/v1/cassaforte/persone'),
+  aggiungiPersona: (p: { id: string; ruolo: Ruolo; nome: string; email?: string }) => call<{ id: string }>('POST', '/v1/cassaforte/persone', p),
+  rimuoviPersona: (id: string) => call<{ ok: true }>('DELETE', `/v1/cassaforte/persone/${id}`),
+  invita: (id: string) => call<{ ok: true }>('POST', `/v1/cassaforte/persone/${id}/invito`),
+  invito: (token: string) => call<{ proprietario: string; ruolo: Ruolo; nome: string }>('GET', `/v1/inviti/${token}`),
+  accettaInvito: (token: string) => call<{ ok: true; proprietario: string }>('POST', '/v1/inviti/accetta', { token }),
+  rifiutaInvito: (token: string) => call<{ ok: true }>('POST', '/v1/inviti/rifiuta', { token }),
+  fiducia: () => call<{ cassaforti: { ruolo: Ruolo; proprietario: string }[] }>('GET', '/v1/fiducia'),
+  rilascio: () => call<{ configurato: boolean; copiaProprietario: Envelope | null }>('GET', '/v1/cassaforte/rilascio'),
+  impostaRilascio: (d: { copiaProprietario: Envelope; metaMemoriae: { decesso: string; emergenza: string }; metaFiduciari: { personaId: string; sigillata: string }[] }) =>
+    call<{ ok: true }>('PUT', '/v1/cassaforte/rilascio', d),
+  metaFiduciario: (personaId: string, sigillata: string) => call<{ ok: true }>('PUT', `/v1/cassaforte/persone/${personaId}/meta`, { sigillata }),
+  pacchetti: (riferimentoRilascio: string, pacchetti: PacchettoRemoto[]) =>
+    call<{ ok: true; numero: number }>('PUT', '/v1/cassaforte/pacchetti', { riferimentoRilascio, pacchetti }),
   eliminaVoce: (id: string) => call<{ ok: true }>('DELETE', `/v1/cassaforte/voci/${id}`),
   caricaFile: async (id: string, bytes: Uint8Array) => {
     const res = await fetch(`/v1/cassaforte/voci/${id}/file`, {

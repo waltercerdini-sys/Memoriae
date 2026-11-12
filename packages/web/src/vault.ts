@@ -12,6 +12,7 @@ import {
   generateRecoveryCode,
   recoveryKeyFromCode,
   recoveryVerifier,
+  reencryptItem,
   unwrapItemKey,
   unwrapVaultKey,
   utf8,
@@ -23,10 +24,15 @@ import {
 import { api, type Accesso, type CassaforteRemota, type TipoVoce, type VoceRemota } from './api';
 
 /** Contenuto di una voce come lo vede l'utente (esiste solo nel browser). */
+export type AzioneAccount = 'conservare' | 'trasmettere' | 'cancellare';
+
 export interface ContenutoVoce {
   titolo: string;
   note: string;
   fornitore?: string;
+  /** Volontà: a chi va questa voce (id delle persone) e cosa fare dell'account. Restano cifrate. */
+  destinatari?: string[];
+  azione?: AzioneAccount;
   file?: { nome: string; tipo: string; dimensione: number };
 }
 
@@ -156,6 +162,18 @@ export async function aggiungiVoce(
     const bytes = new Uint8Array(await dati.file.arrayBuffer());
     await api.caricaFile(id, await encryptFile(itemKey, id, bytes));
   }
+}
+
+/** Aggiorna il contenuto (per esempio le volontà) mantenendo la chiave della voce. */
+export async function aggiornaVoce(vaultKey: Uint8Array, voce: Voce, contenuto: ContenutoVoce, emergenza: boolean): Promise<void> {
+  const enc = comeEncrypted(voce.remota);
+  const k = await unwrapItemKey(vaultKey, enc);
+  const updated = await reencryptItem(k, enc, utf8(JSON.stringify(contenuto)));
+  await api.modificaVoce(voce.id, { contenuto: updated.content, emergenza });
+}
+
+export async function chiaveVoce(vaultKey: Uint8Array, voce: Voce): Promise<Uint8Array> {
+  return unwrapItemKey(vaultKey, comeEncrypted(voce.remota));
 }
 
 export async function scaricaFile(vaultKey: Uint8Array, voce: Voce): Promise<void> {

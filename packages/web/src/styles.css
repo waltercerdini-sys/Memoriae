@@ -302,3 +302,78 @@ button:disabled {
   letter-spacing: 1px;
   text-transform: uppercase;
 }
+
+.esito {
+  background: #e3f1ea;
+  color: #1d4a3b;
+  padding: 14px 16px;
+  border-radius: 10px;
+}
+
+.evidenza {
+  border: 2px solid var(--accento);
+}
+
+.schede {
+  display: flex;
+  gap: 8px;
+  border-bottom: 2px solid var(--sfondo2);
+}
+
+.schede button {
+  background: none;
+  border: none;
+  border-bottom: 4px solid transparent;
+  border-radius: 0;
+  font-weight: 700;
+  color: var(--tenue);
+  min-height: 52px;
+}
+
+.schede button.attiva {
+  color: var(--testo);
+  border-bottom-color: var(--accento);
+}
+
+.persona {
+  background: #fff;
+  border: 2px solid var(--sfondo2);
+  border-radius: 12px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.persona .titolo {
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.azioni {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+button.piccolo {
+  min-height: 44px;
+  padding: 8px 14px;
+  font-size: 0.9rem;
+}
+
+fieldset.scelte-ruolo {
+  border: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+fieldset.scelte-ruolo legend {
+  font-weight: 700;
+  margin-bottom: 8px;
+}

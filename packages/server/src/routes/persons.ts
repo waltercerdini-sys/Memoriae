@@ -39,6 +39,8 @@ const ReleaseSetup = z.object({
   metaFiduciari: z.array(SealedHalf).min(1).max(20),
 });
 const Packages = z.object({
+  /** Nonce della copia del proprietario con cui i pacchetti sono stati costruiti: evita pacchetti costruiti su un rilascio superato. */
+  riferimentoRilascio: z.string().regex(/^[A-Za-z0-9_-]{32}$/),
   pacchetti: z
     .array(
       z.object({
@@ -220,6 +222,8 @@ export async function personRoutes(app: FastifyInstance, opts: PersonRouteOption
     if (!body.success) return reply.code(400).send({ errore: 'Dati del rilascio non validi' });
     const v = await ownVault(req.user!.id);
     if (!v) return reply.code(404).send({ errore: 'Nessuna cassaforte' });
+    // Una sola impostazione: cambiare le metà richiederà una rotazione esplicita (non ancora prevista).
+    if (v.releaseOwnerCopy) return reply.code(409).send({ errore: 'Rilascio già impostato' });
     const ids = body.data.metaFiduciari.map((m) => m.personaId);
     const ps = await db.select().from(persons).where(and(eq(persons.vaultId, v.id), inArray(persons.id, ids)));
     if (ps.length !== ids.length || ps.some((p) => !isFiduciary(p.role) || p.inviteStatus !== 'accettato')) {
@@ -270,6 +274,9 @@ export async function personRoutes(app: FastifyInstance, opts: PersonRouteOption
     const v = await ownVault(req.user!.id);
     if (!v) return reply.code(404).send({ errore: 'Nessuna cassaforte' });
     if (!v.releaseOwnerCopy) return reply.code(409).send({ errore: 'Rilascio non ancora impostato' });
+    if ((v.releaseOwnerCopy as { nonce?: string }).nonce !== body.data.riferimentoRilascio) {
+      return reply.code(409).send({ errore: 'Pacchetti costruiti su un rilascio superato: ricarica' });
+    }
     const ps = await db.select().from(persons).where(eq(persons.vaultId, v.id));
     const byId = new Map(ps.map((p) => [p.id, p]));
     const seen = new Set<string>();

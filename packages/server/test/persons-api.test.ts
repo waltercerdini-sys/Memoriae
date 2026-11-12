@@ -175,8 +175,19 @@ describe('persone, inviti, rilascio e pacchetti', () => {
     const pMarco = await buildRecipientPackage({ vaultId: rosa.vaultId, packageId: `${marcoId}:decesso`, scope: 'decesso', releaseKey: kDec, recipientId: marcoId, recipientPublicKey: pkMarco, items: [{ itemId: 'foto', itemKey: foto.itemKey }] });
     const pGiulia = await buildRecipientPackage({ vaultId: rosa.vaultId, packageId: `${giuliaId}:decesso`, scope: 'decesso', releaseKey: kDec, recipientId: giuliaId, items: [{ itemId: 'lettera', itemKey: lettera.itemKey }] });
     const pAnnaEm = await buildRecipientPackage({ vaultId: rosa.vaultId, packageId: `${annaId}:emergenza`, scope: 'emergenza', releaseKey: kEm, recipientId: annaId, recipientPublicKey: pkAnna, items: [{ itemId: 'banca', itemKey: banca.itemKey }] });
-    const put = await app.inject({ method: 'PUT', url: '/v1/cassaforte/pacchetti', headers: { cookie: rosa.session }, payload: { pacchetti: [pk(pMarco), pk(pGiulia), pk(pAnnaEm)] } });
+    const stale = await app.inject({ method: 'PUT', url: '/v1/cassaforte/pacchetti', headers: { cookie: rosa.session }, payload: { riferimentoRilascio: 'A'.repeat(32), pacchetti: [pk(pMarco)] } });
+    expect(stale.statusCode).toBe(409);
+    const put = await app.inject({ method: 'PUT', url: '/v1/cassaforte/pacchetti', headers: { cookie: rosa.session }, payload: { riferimentoRilascio: setup.ownerCopy.nonce, pacchetti: [pk(pMarco), pk(pGiulia), pk(pAnnaEm)] } });
     expect(put.json()).toEqual({ ok: true, numero: 3 });
+
+    // Una seconda impostazione (per esempio da due schede aperte insieme) viene rifiutata.
+    const again = await app.inject({
+      method: 'PUT',
+      url: '/v1/cassaforte/rilascio',
+      headers: { cookie: rosa.session },
+      payload: { copiaProprietario: setup.ownerCopy, metaMemoriae: { decesso: b64(setup.memoriaeHalves.decesso), emergenza: b64(setup.memoriaeHalves.emergenza) }, metaFiduciari: [{ personaId: annaId, sigillata: setup.sealedFiduciaryHalves[0]!.sealed }] },
+    });
+    expect(again.statusCode).toBe(409);
 
     // ---- Prova del rilascio (quello che farà il blocco 6, dopo verifica e attesa) ----
     const [anaRow] = await db.select().from(persons).where(eq(persons.id, annaId));
@@ -212,7 +223,7 @@ describe('persone, inviti, rilascio e pacchetti', () => {
     const id = randomUUID();
     await app.inject({ method: 'POST', url: '/v1/cassaforte/persone', headers: { cookie: a.session }, payload: { id, ruolo: 'destinatario', nome: 'Y' } });
     const fakeEnv = { v: 1, alg: 'xchacha20poly1305-ietf', nonce: 'A'.repeat(32), ct: 'AAAA' };
-    const res = await app.inject({ method: 'PUT', url: '/v1/cassaforte/pacchetti', headers: { cookie: a.session }, payload: { pacchetti: [{ destinatarioId: id, ambito: 'decesso', tipo: 'release-only', esterno: fakeEnv }] } });
+    const res = await app.inject({ method: 'PUT', url: '/v1/cassaforte/pacchetti', headers: { cookie: a.session }, payload: { riferimentoRilascio: 'A'.repeat(32), pacchetti: [{ destinatarioId: id, ambito: 'decesso', tipo: 'release-only', esterno: fakeEnv }] } });
     expect(res.statusCode).toBe(409);
   });
 });

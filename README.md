@@ -40,6 +40,7 @@ npm run dev -w @memoriae/web               # http://localhost:5173
 node e2e/percorso.mjs                      # passkey con PRF
 SENZA_PRF=1 node e2e/percorso.mjs          # dispositivo senza PRF: password di riserva
 node e2e/recupero.mjs                      # passkey persa: recupero su un nuovo dispositivo
+node e2e/persone.mjs                       # persone di fiducia, invito via e-mail, volontà e pacchetti
 ```
 
 In sviluppo le e-mail (per esempio il codice di recupero) non vengono spedite: compaiono nel terminale
@@ -57,6 +58,15 @@ del server e nel file `packages/server/data/posta.log`.
 
 Ogni modifica su GitHub passa dai controlli automatici (tipi, test, migrazioni su Postgres).
 Hosting previsto: Infomaniak Public Cloud (Svizzera).
+
+## Persone e volontà
+
+- **Persone di fiducia**: ricevono una metà della chiave di rilascio (cifrata per loro) e le voci d'emergenza.
+- **Destinatari**: ricevono solo le voci assegnate. Senza account, il loro pacchetto lo apre una persona di fiducia.
+- Per accettare un invito serve una propria cassaforte (è lì che si riceve in modo sicuro).
+- Le assegnazioni stanno dentro le voci cifrate; il browser del proprietario ricostruisce i pacchetti a ogni modifica.
+- Le metà MEMORIAE vanno nella custodia: in sviluppo cifrate con una chiave in `data/custodia.key`,
+  in produzione in un servizio di gestione chiavi separato (da scegliere).
 
 ## Regole del server
 
