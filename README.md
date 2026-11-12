@@ -32,7 +32,11 @@ npm run prova   # avvia tutto e apre il browser su http://localhost:5173
 ```
 
 Non serve Postgres: i dati di prova stanno nella cartella `data/` (si può cancellare per ricominciare).
-Le e-mail (codici, inviti) compaiono nel terminale. Per fermare: Ctrl+C.
+Le e-mail (codici, inviti, promemoria, collegamenti «blocca») compaiono nel terminale. Per fermare: Ctrl+C.
+
+In prova l'attesa prima di un'apertura dura 2 minuti (invece di 14 giorni o 72 ore) e chiunque può fare
+da operatore, ma mai sulle cassaforti in cui è coinvolto. Per provare tutto il percorso servono quattro
+persone: si usano finestre diverse del browser (per esempio Safari, Chrome e una finestra privata).
 
 ## Comandi
 
@@ -53,6 +57,8 @@ node e2e/percorso.mjs                      # passkey con PRF
 SENZA_PRF=1 node e2e/percorso.mjs          # dispositivo senza PRF: password di riserva
 node e2e/recupero.mjs                      # passkey persa: recupero su un nuovo dispositivo
 node e2e/persone.mjs                       # persone di fiducia, invito via e-mail, volontà e pacchetti
+# con ATTESA_PROVA_SECONDI=5 JOBS_INTERVAL_SECONDS=5 npm run prova:
+MAIL_OUTBOX=data/posta.log node e2e/attivazione.mjs   # richiesta, blocco, verifica, attesa, apertura, consegna
 ```
 
 In sviluppo le e-mail (per esempio il codice di recupero) non vengono spedite: compaiono nel terminale
@@ -79,6 +85,19 @@ Hosting previsto: Infomaniak Public Cloud (Svizzera).
 - Le assegnazioni stanno dentro le voci cifrate; il browser del proprietario ricostruisce i pacchetti a ogni modifica.
 - Le metà MEMORIAE vanno nella custodia: in sviluppo cifrate con una chiave in `data/custodia.key`,
   in produzione in un servizio di gestione chiavi separato (da scegliere).
+
+## Controllo periodico e attivazione
+
+- **Sono qui**: ogni 7, 30 o 90 giorni MEMORIAE chiede se va tutto bene (un clic nell'e-mail, oppure entrare nell'app).
+  Dopo 3 promemoria senza risposta avvisa le persone di fiducia. Non apre nulla.
+- **Richiesta**: una persona di fiducia chiede l'apertura per *emergenza* o *decesso*, spiega e allega un documento
+  (cifrato dal server, lo legge solo l'operatore). Il proprietario riceve subito un collegamento per bloccarla.
+- **Verifica**: un operatore MEMORIAE (`OPERATOR_EMAILS`) prende in carico e approva o respinge.
+  Non può mai decidere su cassaforti in cui è coinvolto.
+- **Attesa**: 14 giorni (decesso) o 72 ore (emergenza). Il proprietario può bloccare fino all'ultimo.
+- **Apertura**: la metà MEMORIAE esce solo verso una persona di fiducia; l'unione con la sua metà avviene nel suo
+  browser, che apre i pacchetti, consegna quelli cifrati per i destinatari e mostra quelli da consegnare a mano.
+- **Emergenza**: solo le voci d'emergenza, per 30 giorni; il proprietario può chiudere l'accesso prima.
 
 ## Regole del server
 

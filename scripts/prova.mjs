@@ -29,6 +29,10 @@ const env = {
   CUSTODY_KEY_FILE: join(data, 'custodia.key'),
   LOG_LEVEL: 'warn',
   HOST: 'localhost',
+  // Prove: l'attesa dopo la verifica dura 2 minuti invece di 14 giorni / 72 ore,
+  // e i lavori periodici (promemoria, rilasci) girano ogni 15 secondi.
+  ATTESA_PROVA_SECONDI: process.env.ATTESA_PROVA_SECONDI ?? '120',
+  JOBS_INTERVAL_SECONDS: process.env.JOBS_INTERVAL_SECONDS ?? '15',
 };
 
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
@@ -79,7 +83,7 @@ for (let i = 0; i < 60; i++) {
   try {
     const ok = (await fetch('http://localhost:3000/health')).ok && (await fetch(url)).ok;
     if (ok) {
-      console.log(`\n✅ MEMORIAE è pronta: ${url}\n   Le e-mail di prova (codici, inviti) compariranno qui sotto.\n   Per fermare: Ctrl+C\n`);
+      console.log(`\n✅ MEMORIAE è pronta: ${url}\n   Le e-mail di prova (codici, inviti) compariranno qui sotto.\n   In prova l'attesa prima di un'apertura dura ${env.ATTESA_PROVA_SECONDI} secondi.\n   Per fermare: Ctrl+C\n`);
       if (process.platform === 'darwin') spawn('open', [url]);
       break;
     }

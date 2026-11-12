@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api, type Fornitore, type Persona, type Ruolo, type TipoVoce, type Utente } from './api';
+import { api, type Caso, type Fornitore, type Persona, type Ruolo, type TipoVoce, type Utente } from './api';
 import { Controllo } from './Controllo';
+import { Fiducia, statoCaso } from './Fiducia';
+import { Operatore } from './Operatore';
 import { Persone } from './Persone';
 import { sincronizzaRilascio, type StatoRilascio } from './rilascio';
 import { aggiornaVoce, aggiungiVoce, leggiVoci, scaricaFile, type AzioneAccount, type ContenutoVoce, type Voce } from './vault';
@@ -39,8 +41,10 @@ export function Inventario({
   const [persone, setPersone] = useState<Persona[]>([]);
   const [fornitori, setFornitori] = useState<Fornitore[]>([]);
   const [fiducia, setFiducia] = useState<{ ruolo: Ruolo; proprietario: string }[]>([]);
+  const [operatore, setOperatore] = useState<{ prova: boolean } | null>(null);
+  const [mieiCasi, setMieiCasi] = useState<Caso[]>([]);
   const [stato, setStato] = useState<StatoRilascio | null>(null);
-  const [scheda, setScheda] = useState<'voci' | 'persone' | 'controllo'>('voci');
+  const [scheda, setScheda] = useState<'voci' | 'persone' | 'controllo' | 'altri' | 'operatore'>('voci');
   const [vista, setVista] = useState<{ tipo: 'elenco' } | { tipo: 'nuova' } | { tipo: 'dettaglio'; id: string }>({ tipo: 'elenco' });
   const [errore, setErrore] = useState<string | null>(null);
   const [esito, setEsito] = useState<string | null>(null);
@@ -61,7 +65,21 @@ export function Inventario({
     void ricarica();
     api.fornitori().then((r) => setFornitori(r.fornitori)).catch(() => setFornitori([]));
     api.fiducia().then((r) => setFiducia(r.cassaforti)).catch(() => setFiducia([]));
+    api.operatore().then((r) => setOperatore({ prova: r.prova })).catch(() => setOperatore(null));
+    api.mieiCasi().then((r) => setMieiCasi(r.casi)).catch(() => setMieiCasi([]));
   }, [ricarica]);
+
+  async function bloccaMio(id: string, chiudi: boolean) {
+    setErrore(null);
+    try {
+      if (chiudi) await api.chiudiEmergenza(id);
+      else await api.bloccaCaso(id);
+      setMieiCasi((await api.mieiCasi()).casi);
+      setEsito(chiudi ? 'Accesso d\'emergenza chiuso.' : 'Richiesta bloccata. Non succede nulla.');
+    } catch (e) {
+      setErrore(e instanceof Error ? e.message : 'Operazione non riuscita');
+    }
+  }
 
   async function rispondiInvito(accetta: boolean) {
     if (!invito) return;
@@ -188,6 +206,31 @@ export function Inventario({
           </button>
         </div>
       )}
+      {mieiCasi
+        .filter((c) => ['richiesta', 'in-verifica', 'in-attesa'].includes(c.stato) || (c.stato === 'rilasciata' && c.ambito === 'emergenza' && c.apribile))
+        .map((c) => (
+          <div key={c.id} className="riquadro evidenza" role="alert">
+            {c.stato === 'rilasciata' ? (
+              <>
+                <h2>Le tue persone di fiducia vedono le voci d'emergenza</h2>
+                <p>Se stai bene, puoi chiudere subito l'accesso.</p>
+                <button className="primario" onClick={() => bloccaMio(c.id, true)}>
+                  Chiudi l'accesso d'emergenza
+                </button>
+              </>
+            ) : (
+              <>
+                <h2>{c.richiedente} ha chiesto di aprire la tua cassaforte</h2>
+                <p>
+                  Motivo indicato: {c.ambito === 'emergenza' ? 'emergenza' : 'decesso'}. {statoCaso(c)}
+                </p>
+                <button className="primario" onClick={() => bloccaMio(c.id, false)}>
+                  Sto bene: blocca la richiesta
+                </button>
+              </>
+            )}
+          </div>
+        ))}
       {esito && <p className="esito">{esito}</p>}
       {fiducia.length > 0 && (
         <p className="tenue">
@@ -205,8 +248,22 @@ export function Inventario({
         <button role="tab" aria-selected={scheda === 'controllo'} className={scheda === 'controllo' ? 'attiva' : ''} onClick={() => setScheda('controllo')}>
           Sono qui
         </button>
+        {fiducia.length > 0 && (
+          <button role="tab" aria-selected={scheda === 'altri'} className={scheda === 'altri' ? 'attiva' : ''} onClick={() => setScheda('altri')}>
+            Per gli altri
+          </button>
+        )}
+        {operatore && (
+          <button role="tab" aria-selected={scheda === 'operatore'} className={scheda === 'operatore' ? 'attiva' : ''} onClick={() => setScheda('operatore')}>
+            Operatore
+          </button>
+        )}
       </div>
-      {scheda === 'controllo' ? (
+      {scheda === 'operatore' && operatore ? (
+        <Operatore prova={operatore.prova} />
+      ) : scheda === 'altri' ? (
+        <Fiducia vaultKey={vaultKey} />
+      ) : scheda === 'controllo' ? (
         <Controllo />
       ) : scheda === 'persone' ? (
         <Persone persone={persone} stato={stato} onCambio={ricarica} />

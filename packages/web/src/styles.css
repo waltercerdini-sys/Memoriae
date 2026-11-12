@@ -316,7 +316,8 @@ button:disabled {
 
 .schede {
   display: flex;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 0 4px;
   border-bottom: 2px solid var(--sfondo2);
 }
 
@@ -328,6 +329,9 @@ button:disabled {
   font-weight: 700;
   color: var(--tenue);
   min-height: 52px;
+  padding-left: 12px;
+  padding-right: 12px;
+  white-space: nowrap;
 }
 
 .schede button.attiva {
@@ -376,4 +380,31 @@ fieldset.scelte-ruolo {
 fieldset.scelte-ruolo legend {
   font-weight: 700;
   margin-bottom: 8px;
+}
+
+/* Attivazione: richieste, apertura, operatore */
+.voce.aperta {
+  border-radius: 12px;
+}
+
+.caso {
+  border-top: 1px solid var(--sfondo2);
+  padding-top: 12px;
+  margin-top: 12px;
+}
+
+.modulo {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.riquadro .riquadro {
+  margin-top: 12px;
+  background: var(--sfondo);
+}
+
+.riquadro button + button {
+  margin-left: 8px;
 }

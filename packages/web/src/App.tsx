@@ -45,6 +45,24 @@ export function App() {
       .catch(() => setGrazie('Questo collegamento è già stato usato o è scaduto. Se vuoi confermare che stai bene, entra nell\'app.'));
   }, []);
 
+  // Collegamento «blocca» nell'e-mail al proprietario: funziona senza accedere.
+  const [blocco, setBlocco] = useState<{ token: string; richiedente: string; ambito: string; fatto: boolean } | null>(null);
+  useEffect(() => {
+    const token = new URLSearchParams(window.location.search).get('blocca');
+    if (!token) return;
+    window.history.replaceState(null, '', window.location.pathname);
+    api
+      .infoBlocco(token)
+      .then((r) => setBlocco({ token, richiedente: r.richiedente, ambito: r.ambito, fatto: false }))
+      .catch(() => setErrore('Questo collegamento è già stato usato oppure la richiesta è già chiusa.'));
+  }, []);
+  const bloccaOra = () =>
+    esegui(async () => {
+      if (!blocco) return;
+      await api.bloccaDaEmail(blocco.token);
+      setBlocco({ ...blocco, fatto: true });
+    });
+
   const chiudiInvito = () => {
     setInvito(null);
     window.history.replaceState(null, '', window.location.pathname);
@@ -137,6 +155,24 @@ export function App() {
           <p className="esito" role="status">
             {grazie}
           </p>
+        )}
+        {blocco && (
+          <div className="riquadro evidenza">
+            {blocco.fatto ? (
+              <>
+                <h2>Richiesta bloccata</h2>
+                <p>Non succede nulla: la tua cassaforte resta chiusa. Abbiamo avvisato le tue persone di fiducia.</p>
+              </>
+            ) : (
+              <>
+                <h2>{blocco.richiedente} ha chiesto di aprire la tua cassaforte</h2>
+                <p>Motivo indicato: {blocco.ambito === 'emergenza' ? 'emergenza' : 'decesso'}. Se stai bene, bloccala: basta un clic.</p>
+                <button className="primario" onClick={bloccaOra} disabled={occupato}>
+                  Sto bene: blocca la richiesta
+                </button>
+              </>
+            )}
+          </div>
         )}
         {s.nome === 'caricamento' && <p className="tenue">Un momento…</p>}
         {invito && s.nome !== 'inventario' && (

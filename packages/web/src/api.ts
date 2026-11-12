@@ -92,6 +92,81 @@ export interface StatoControllo {
   stato: string;
 }
 
+export type Ambito = 'decesso' | 'emergenza';
+export type StatoCaso = 'richiesta' | 'in-verifica' | 'respinta' | 'in-attesa' | 'bloccata' | 'rilasciata';
+
+export interface Caso {
+  id: string;
+  ambito: Ambito;
+  stato: StatoCaso;
+  richiedente: string;
+  richiestoDaMe: boolean;
+  motivo: string | null;
+  creatoIl: string;
+  attesaFinoAl: string | null;
+  rilasciatoIl: string | null;
+  accessoFinoAl: string | null;
+  nota: string | null;
+  apribile: boolean;
+}
+
+export interface CassaforteAffidata {
+  vaultId: string;
+  personaId: string;
+  ruolo: Ruolo;
+  proprietario: string;
+  casi: Caso[];
+}
+
+export interface VoceCondivisa {
+  id: string;
+  tipo: TipoVoce;
+  contenuto: Envelope;
+  haFile: boolean;
+}
+
+export interface DatiRilascio {
+  vaultId: string;
+  ambito: Ambito;
+  proprietario: string;
+  accessoFinoAl: string | null;
+  metaMemoriae: string;
+  metaFiduciario: { personaId: string; sigillata: string };
+  mioPersonaId: string;
+  pacchetti: { destinatarioId: string; nome: string; haAccount: boolean; tipo: PacchettoRemoto['tipo']; esterno: Envelope; consegnato: boolean }[];
+}
+
+export interface Ricevuto {
+  id: string;
+  vaultId: string;
+  proprietario: string;
+  ambito: Ambito;
+  interno: string;
+  consegnatoIl: string;
+  accessoFinoAl: string | null;
+}
+
+export interface CasoOperatore {
+  id: string;
+  ambito: Ambito;
+  stato: StatoCaso;
+  proprietario: { nome: string; email: string };
+  richiedente: { nome: string; email: string | null; ruolo: Ruolo };
+  motivo: string | null;
+  documenti: { id: string; nome: string; tipo: string; byte: number }[];
+  creatoIl: string;
+  attesaFinoAl: string | null;
+  rilasciatoIl: string | null;
+  verificatoDaMe: boolean;
+  nota: string | null;
+}
+
+async function bytes(url: string): Promise<Uint8Array> {
+  const res = await fetch(url, { credentials: 'same-origin' });
+  if (!res.ok) throw new ApiError(res.status, 'File non disponibile');
+  return new Uint8Array(await res.arrayBuffer());
+}
+
 export const api = {
   io: () => call<{ utente: Utente; haCassaforte: boolean }>('GET', '/v1/io'),
   registrazioneOpzioni: (nome: string, email: string) =>
@@ -124,7 +199,36 @@ export const api = {
   invito: (token: string) => call<{ proprietario: string; ruolo: Ruolo; nome: string }>('GET', `/v1/inviti/${token}`),
   accettaInvito: (token: string) => call<{ ok: true; proprietario: string }>('POST', '/v1/inviti/accetta', { token }),
   rifiutaInvito: (token: string) => call<{ ok: true }>('POST', '/v1/inviti/rifiuta', { token }),
-  fiducia: () => call<{ cassaforti: { ruolo: Ruolo; proprietario: string }[] }>('GET', '/v1/fiducia'),
+  fiducia: () => call<{ cassaforti: CassaforteAffidata[] }>('GET', '/v1/fiducia'),
+  chiediApertura: (vaultId: string, ambito: Ambito, motivo: string) => call<{ id: string }>('POST', `/v1/fiducia/${vaultId}/richieste`, { ambito, motivo }),
+  caricaDocumento: async (casoId: string, file: File) => {
+    const q = new URLSearchParams({ nome: file.name, tipo: file.type || 'application/octet-stream' });
+    const res = await fetch(`/v1/fiducia/casi/${casoId}/documenti?${q}`, {
+      method: 'PUT',
+      credentials: 'same-origin',
+      headers: { 'content-type': 'application/octet-stream' },
+      body: file,
+    });
+    if (!res.ok) throw new ApiError(res.status, (await res.json().catch(() => null))?.errore ?? 'Caricamento non riuscito');
+  },
+  datiRilascio: (casoId: string) => call<DatiRilascio>('GET', `/v1/fiducia/casi/${casoId}/rilascio`),
+  vociCaso: (casoId: string) => call<{ voci: VoceCondivisa[] }>('GET', `/v1/fiducia/casi/${casoId}/voci`),
+  fileCaso: (casoId: string, itemId: string) => bytes(`/v1/fiducia/casi/${casoId}/voci/${itemId}/file`),
+  consegna: (casoId: string, destinatarioId: string, interno: string) => call<{ ok: true }>('POST', `/v1/fiducia/casi/${casoId}/consegne`, { destinatarioId, interno }),
+  ricevuti: () => call<{ ricevuti: Ricevuto[] }>('GET', '/v1/ricevuti'),
+  vociRicevute: (id: string) => call<{ voci: VoceCondivisa[] }>('GET', `/v1/ricevuti/${id}/voci`),
+  fileRicevuto: (id: string, itemId: string) => bytes(`/v1/ricevuti/${id}/voci/${itemId}/file`),
+  mieiCasi: () => call<{ casi: Caso[] }>('GET', '/v1/cassaforte/casi'),
+  bloccaCaso: (id: string) => call<{ ok: true }>('POST', `/v1/cassaforte/casi/${id}/blocca`),
+  chiudiEmergenza: (id: string) => call<{ ok: true }>('POST', `/v1/cassaforte/casi/${id}/chiudi`),
+  infoBlocco: (token: string) => call<{ richiedente: string; ambito: Ambito; stato: StatoCaso; attesaFinoAl: string | null }>('GET', `/v1/blocca/${token}`),
+  bloccaDaEmail: (token: string) => call<{ ok: true }>('POST', `/v1/blocca/${token}`),
+  operatore: () => call<{ operatore: true; prova: boolean }>('GET', '/v1/operatore'),
+  casiOperatore: () => call<{ casi: CasoOperatore[] }>('GET', '/v1/operatore/casi'),
+  documentoOperatore: (casoId: string, docId: string) => bytes(`/v1/operatore/casi/${casoId}/documenti/${docId}`),
+  avviaVerifica: (id: string) => call<{ ok: true }>('POST', `/v1/operatore/casi/${id}/avvia`),
+  approva: (id: string, nota?: string) => call<{ ok: true; attesaFinoAl: string }>('POST', `/v1/operatore/casi/${id}/approva`, { nota }),
+  respingi: (id: string, nota: string) => call<{ ok: true }>('POST', `/v1/operatore/casi/${id}/respingi`, { nota }),
   rilascio: () => call<{ configurato: boolean; copiaProprietario: Envelope | null }>('GET', '/v1/cassaforte/rilascio'),
   impostaRilascio: (d: { copiaProprietario: Envelope; metaMemoriae: { decesso: string; emergenza: string }; metaFiduciari: { personaId: string; sigillata: string }[] }) =>
     call<{ ok: true }>('PUT', '/v1/cassaforte/rilascio', d),
