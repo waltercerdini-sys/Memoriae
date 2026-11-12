@@ -50,6 +50,13 @@
       "when": 1794479674812,
       "tag": "0006_abbonamenti",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794481063854,
+      "tag": "0007_catalogo_verificato",
+      "breakpoints": true
     }
   ]
 }

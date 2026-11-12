@@ -261,6 +261,10 @@ export const providers = pgTable('providers', {
   heirSteps: jsonb('heir_steps').notNull().default(sql`'[]'::jsonb`),
   sourceUrl: text('source_url'),
   verifiedAt: timestamp('verified_at', { withTimezone: true }),
+  /** verificato: letto sulla pagina ufficiale · parziale: la pagina copre solo una parte · da-verificare: nessuna fonte ufficiale trovata. */
+  verification: text('verification').notNull().default('da-verificare'),
+  /** Limiti e avvertenze (per esempio cosa non è accessibile agli eredi). */
+  note: text('note'),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 }, (t) => [uniqueIndex('providers_slug_idx').on(t.slug)]);

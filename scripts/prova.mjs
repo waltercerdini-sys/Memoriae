@@ -5,8 +5,9 @@
  * Le e-mail non vengono spedite: compaiono qui nel terminale.
  * Per fermare tutto: Ctrl+C.
  */
-import { spawn } from 'node:child_process';
-import { mkdirSync } from 'node:fs';
+import { spawn, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -36,6 +37,22 @@ const env = {
 };
 
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+
+// Dopo aver scaricato una versione nuova serve `npm install`: se manca, lo facciamo noi.
+const lock = join(root, 'package-lock.json');
+const stamp = join(root, 'node_modules', '.memoriae-installato');
+const impronta = existsSync(lock) ? createHash('sha256').update(readFileSync(lock)).digest('hex') : '';
+const bin = (n) => join(root, 'node_modules', '.bin', process.platform === 'win32' ? `${n}.cmd` : n);
+const installato = existsSync(bin('tsx')) && existsSync(bin('vite')) && existsSync(stamp) && readFileSync(stamp, 'utf8') === impronta;
+if (!installato) {
+  console.log('Preparo gli strumenti (npm install): la prima volta può richiedere un paio di minuti…\n');
+  const r = spawnSync(npm, ['install', '--no-audit', '--no-fund'], { cwd: root, stdio: 'inherit' });
+  if (r.status !== 0 || !existsSync(bin('tsx')) || !existsSync(bin('vite'))) {
+    console.error('\nL\'installazione non è riuscita. Copia le righe qui sopra e mandale a Claude.');
+    process.exit(1);
+  }
+  writeFileSync(stamp, impronta);
+}
 const figli = [];
 function avvia(nome, args) {
   const p = spawn(npm, args, { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32' });

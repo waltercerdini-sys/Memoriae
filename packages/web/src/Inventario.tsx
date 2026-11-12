@@ -4,6 +4,7 @@ import { Controllo } from './Controllo';
 import { Fiducia, statoCaso } from './Fiducia';
 import { Operatore } from './Operatore';
 import { Piano, RigaPiano } from './Piano';
+import { SchedaFornitore } from './SchedaFornitore';
 import { Persone } from './Persone';
 import { sincronizzaRilascio, type StatoRilascio } from './rilascio';
 import { aggiornaVoce, aggiungiVoce, leggiVoci, scaricaFile, type AzioneAccount, type ContenutoVoce, type Voce } from './vault';
@@ -154,36 +155,7 @@ export function Inventario({
             setScheda('persone');
           }}
         />
-        {f && (
-          <div className="riquadro">
-            <h2>{f.nome}</h2>
-            {f.daVivi.length > 0 && (
-              <>
-                <h3>Da fare adesso</h3>
-                <ol>{f.daVivi.map((x) => <li key={x}>{x}</li>)}</ol>
-              </>
-            )}
-            {f.perGliEredi.length > 0 && (
-              <>
-                <h3>Cosa dovranno fare gli eredi</h3>
-                <ol>{f.perGliEredi.map((x) => <li key={x}>{x}</li>)}</ol>
-              </>
-            )}
-            <p className="tenue">
-              {f.fonte ? (
-                <>
-                  Fonte:{' '}
-                  <a href={f.fonte} target="_blank" rel="noreferrer noopener">
-                    pagina ufficiale
-                  </a>
-                  . Indicazioni da ricontrollare prima di agire.
-                </>
-              ) : (
-                'Indicazioni generali, in corso di verifica con il fornitore.'
-              )}
-            </p>
-          </div>
-        )}
+        {f && <SchedaFornitore f={f} />}
         <button
           className="pericolo"
           onClick={async () => {

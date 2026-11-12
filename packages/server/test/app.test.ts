@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildApp } from '../src/app';
 import type { Database } from '../src/db/client';
 import { auditLog, providers } from '../src/db/schema';
-import { PROVIDER_SEED, seedProviders } from '../src/db/seed-providers';
+import { PROVIDER_SEED, providersToRecheck, seedProviders } from '../src/db/seed-providers';
 import { loadConfig } from '../src/config';
 import { MemoryBlobStore } from '../src/storage/blobs';
 import { DevKeyCustody } from '../src/storage/custody';
@@ -40,12 +40,30 @@ describe('server', () => {
   it('pubblica il catalogo fornitori', async () => {
     const app = appFor(db);
     const res = await app.inject({ method: 'GET', url: '/v1/fornitori' });
-    const body = res.json() as { fornitori: { slug: string; verificatoIl: string | null }[] };
+    const body = res.json() as { fornitori: { slug: string; verificatoIl: string | null; verifica: string; fonte: string | null }[] };
     expect(body.fornitori).toHaveLength(PROVIDER_SEED.length);
-    expect(body.fornitori.map((f) => f.slug)).toContain('infomaniak');
-    // Nessuna voce è ancora verificata: è una bozza.
-    expect(body.fornitori.every((f) => f.verificatoIl === null)).toBe(true);
+    const apple = body.fornitori.find((f) => f.slug === 'apple')!;
+    expect(apple.verifica).toBe('verificato');
+    expect(apple.verificatoIl).toMatch(/^2026-11-12/);
+    expect(body.fornitori.find((f) => f.slug === 'infomaniak')!.verifica).toBe('da-verificare');
     await app.close();
+  });
+
+  it('il catalogo è coerente: ogni voce verificata ha fonte e data, nessun doppione', () => {
+    expect(new Set(PROVIDER_SEED.map((p) => p.slug)).size).toBe(PROVIDER_SEED.length);
+    for (const p of PROVIDER_SEED) {
+      expect(p.heirSteps.length, p.slug).toBeGreaterThan(0);
+      if (p.verification !== 'da-verificare') {
+        expect(p.sourceUrl, p.slug).toMatch(/^https:\/\//);
+        expect(p.verifiedAt, p.slug).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      } else {
+        expect(p.verifiedAt, p.slug).toBeUndefined();
+        expect(p.note, p.slug).toBeTruthy();
+      }
+    }
+    // Tra 6 mesi le voci verificate oggi andranno ricontrollate.
+    expect(providersToRecheck(new Date('2026-12-01')).every((p) => p.verification === 'da-verificare')).toBe(true);
+    expect(providersToRecheck(new Date('2027-06-01'))).toHaveLength(PROVIDER_SEED.length);
   });
 });
 

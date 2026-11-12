@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api, type Ambito, type CassaforteAffidata, type Caso, type Ricevuto } from './api';
+import { api, type Ambito, type CassaforteAffidata, type Caso, type Fornitore, type Ricevuto } from './api';
+import { SchedaFornitore } from './SchedaFornitore';
 import { apriCaso, apriRicevuto, salvaFileAperto, type EsitoApertura, type VoceAperta } from './apertura';
 
 const data = (s: string) => new Date(s).toLocaleString('it-CH', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -234,6 +235,11 @@ function Richiesta(p: { c: CassaforteAffidata; inCorso: (a: Ambito) => boolean; 
 
 function ElencoVoci(p: { titolo?: string; voci: VoceAperta[]; scarica: (v: VoceAperta) => Promise<Uint8Array>; vuoto?: string }) {
   const [errore, setErrore] = useState<string | null>(null);
+  const [fornitori, setFornitori] = useState<Fornitore[]>([]);
+  const [guida, setGuida] = useState<string | null>(null);
+  useEffect(() => {
+    api.fornitori().then((r) => setFornitori(r.fornitori)).catch(() => setFornitori([]));
+  }, []);
   return (
     <div>
       {p.titolo && <h3>{p.titolo}</h3>}
@@ -248,6 +254,17 @@ function ElencoVoci(p: { titolo?: string; voci: VoceAperta[]; scarica: (v: VoceA
                 Volontà: {v.contenuto.azione === 'cancellare' ? 'chiudere e cancellare l\'account' : v.contenuto.azione === 'conservare' ? 'conservarlo come ricordo' : 'consegnarlo ai destinatari'}
               </p>
             )}
+            {(() => {
+              const f = fornitori.find((x) => x.slug === v.contenuto.fornitore);
+              if (!f) return null;
+              return guida === v.id ? (
+                <SchedaFornitore f={f} perEredi />
+              ) : (
+                <button className="link" onClick={() => setGuida(v.id)}>
+                  Come si fa con {f.nome}?
+                </button>
+              );
+            })()}
             {v.haFile && v.contenuto.file && (
               <button className="secondario" onClick={() => salvaFileAperto(v, () => p.scarica(v)).catch((e) => setErrore(String(e)))}>
                 Scarica «{v.contenuto.file.nome}»

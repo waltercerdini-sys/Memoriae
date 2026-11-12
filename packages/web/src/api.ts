@@ -61,6 +61,9 @@ export interface Fornitore {
   daVivi: string[];
   perGliEredi: string[];
   fonte: string | null;
+  verificatoIl: string | null;
+  verifica: 'verificato' | 'parziale' | 'da-verificare';
+  nota: string | null;
 }
 
 export type Ruolo = 'fiduciario' | 'destinatario' | 'fiduciario-destinatario';

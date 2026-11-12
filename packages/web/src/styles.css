@@ -408,3 +408,7 @@ fieldset.scelte-ruolo legend {
 .riquadro button + button {
   margin-left: 8px;
 }
+
+a {
+  color: var(--accento);
+}

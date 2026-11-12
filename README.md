@@ -27,8 +27,7 @@ Il documento di architettura completo è nel progetto Claude "Eredità digitale 
 Serve solo **Node.js** (installer da https://nodejs.org, versione LTS). Poi, nella cartella del progetto:
 
 ```bash
-npm install     # la prima volta
-npm run prova   # avvia tutto e apre il browser su http://localhost:5173
+npm run prova   # installa ciò che serve (se manca), avvia tutto e apre il browser su http://localhost:5173
 ```
 
 Non serve Postgres: i dati di prova stanno nella cartella `data/` (si può cancellare per ricominciare).
@@ -99,6 +98,14 @@ Hosting previsto: Infomaniak Public Cloud (Svizzera).
 - **Apertura**: la metà MEMORIAE esce solo verso una persona di fiducia; l'unione con la sua metà avviene nel suo
   browser, che apre i pacchetti, consegna quelli cifrati per i destinatari e mostra quelli da consegnare a mano.
 - **Emergenza**: solo le voci d'emergenza, per 30 giorni; il proprietario può chiudere l'accesso prima.
+
+## Catalogo dei servizi
+
+Per ogni servizio (Apple, Google, Microsoft, Facebook, PayPal, Bitwarden, SwissID, TWINT, PostFinance, UBS,
+Raiffeisen, Swisscom, FFS, …) il catalogo dice cosa fare da vivi e cosa dovranno fare gli eredi, con la pagina
+ufficiale e la data di verifica. Ogni voce è «verificato», «parziale» o «da-verificare»; gli eredi vedono le
+indicazioni accanto alle voci ricevute. Le procedure cambiano: le voci vanno ricontrollate ogni 6 mesi
+(`npm run catalogo:da-ricontrollare -w @memoriae/server`).
 
 ## Piani e pagamenti
 
