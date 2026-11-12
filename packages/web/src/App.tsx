@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, ApiError, type Utente } from './api';
 import { Inventario } from './Inventario';
+import { Recupero } from './Recupero';
 import { apriConPasskey, apriConPassword, creaCassaforte, metodoPer, type SegretoAccesso } from './vault';
 import { createPasskey, passkeysSupported, prfOnly, usePasskey } from './webauthn';
 
@@ -11,7 +12,8 @@ type Schermata =
   | { nome: 'password-nuova'; credentialId: string }
   | { nome: 'codice'; codice: string; vaultKey: Uint8Array }
   | { nome: 'accesso'; messaggio?: string }
-  | { nome: 'password-apri'; }
+  | { nome: 'password-apri' }
+  | { nome: 'recupero' }
   | { nome: 'inventario'; vaultKey: Uint8Array };
 
 export function App() {
@@ -123,12 +125,24 @@ export function App() {
             <button className="primario" onClick={accedi} disabled={occupato}>
               {occupato ? 'Attendi…' : 'Accedi con la passkey'}
             </button>
+            <button className="link" onClick={() => setS({ nome: 'recupero' })}>
+              Ho perso la passkey o ho cambiato dispositivo
+            </button>
             {!utente && (
               <button className="link" onClick={() => setS({ nome: 'benvenuto' })}>
                 Indietro
               </button>
             )}
           </section>
+        )}
+        {s.nome === 'recupero' && (
+          <Recupero
+            onAnnulla={() => setS({ nome: 'accesso' })}
+            onFatto={(vaultKey, u) => {
+              setUtente(u);
+              setS({ nome: 'inventario', vaultKey });
+            }}
+          />
         )}
         {s.nome === 'password-apri' && (
           <PasswordApri

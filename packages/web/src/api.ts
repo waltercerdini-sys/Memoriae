@@ -73,9 +73,17 @@ export const api = {
   accessoVerifica: (challengeId: string, risposta: unknown) =>
     call<{ utente: Utente; credentialId: string; haCassaforte: boolean }>('POST', '/v1/accesso/verifica', { challengeId, risposta }),
   uscita: () => call<{ ok: true }>('POST', '/v1/uscita'),
-  creaCassaforte: (dati: { id: string; chiavePubblica: string; chiavePrivataCifrata: Envelope; accessi: Accesso[] }) =>
+  creaCassaforte: (dati: { id: string; chiavePubblica: string; chiavePrivataCifrata: Envelope; accessi: Accesso[]; verificaRecupero: string }) =>
     call<{ id: string }>('POST', '/v1/cassaforte', dati),
   cassaforte: () => call<CassaforteRemota>('GET', '/v1/cassaforte'),
+  sostituisciAccesso: (a: Accesso) => call<{ ok: true }>('PUT', '/v1/cassaforte/accessi', a),
+  recuperoInizia: (email: string) => call<{ ok: true }>('POST', '/v1/recupero/inizia', { email }),
+  recuperoVerificaEmail: (email: string, codice: string) =>
+    call<{ cassaforteId: string; chiaveCifrata: Envelope }>('POST', '/v1/recupero/verifica-email', { email, codice }),
+  recuperoPasskeyOpzioni: (verificaRecupero: string) =>
+    call<{ challengeId: string; opzioni: PublicKeyCredentialCreationOptionsJSONLike }>('POST', '/v1/recupero/passkey/opzioni', { verificaRecupero }),
+  recuperoCompleta: (challengeId: string, risposta: unknown, verificaRecupero: string) =>
+    call<{ utente: Utente; credentialId: string }>('POST', '/v1/recupero/completa', { challengeId, risposta, verificaRecupero }),
   voci: () => call<{ voci: VoceRemota[] }>('GET', '/v1/cassaforte/voci'),
   creaVoce: (v: { id: string; tipo: TipoVoce; emergenza: boolean; chiaveVoceCifrata: Envelope; contenuto: Envelope }) =>
     call<{ id: string }>('POST', '/v1/cassaforte/voci', v),

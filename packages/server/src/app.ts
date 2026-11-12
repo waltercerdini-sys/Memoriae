@@ -4,7 +4,9 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import type { PasskeyService } from './auth/passkeys';
 import type { Database } from './db/client';
 import { providers } from './db/schema';
+import type { Mailer } from './mail/mailer';
 import { authRoutes } from './routes/auth';
+import { recoveryRoutes } from './routes/recovery';
 import { vaultRoutes } from './routes/vault';
 import type { BlobStore } from './storage/blobs';
 
@@ -12,11 +14,12 @@ export interface AppOptions {
   db: Database;
   passkeys: PasskeyService;
   blobs: BlobStore;
+  mailer: Mailer;
   cookieSecure: boolean;
   logLevel?: string;
 }
 
-export function buildApp({ db, passkeys, blobs, cookieSecure, logLevel = 'info' }: AppOptions): FastifyInstance {
+export function buildApp({ db, passkeys, blobs, mailer, cookieSecure, logLevel = 'info' }: AppOptions): FastifyInstance {
   // Nei log solo metodo, percorso e stato: mai corpi delle richieste né dati personali.
   const app = Fastify({ logger: { level: logLevel }, bodyLimit: 1024 * 1024 });
 
@@ -56,6 +59,7 @@ export function buildApp({ db, passkeys, blobs, cookieSecure, logLevel = 'info' 
 
   app.register(authRoutes, { db, passkeys, cookieSecure });
   app.register(vaultRoutes, { db, blobs });
+  app.register(recoveryRoutes, { db, passkeys, mailer, cookieSecure });
 
   return app;
 }

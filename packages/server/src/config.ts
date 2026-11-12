@@ -28,6 +28,8 @@ const ConfigSchema = z.object({
     .transform((v) => (v === undefined ? undefined : v === 'true')),
   /** Cartella dei file cifrati (sviluppo). In produzione: object storage S3. */
   BLOB_DIR: z.string().default('./data/file'),
+  /** Sviluppo: le e-mail finiscono in questo file e nel terminale. In produzione: SMTP (da aggiungere). */
+  MAIL_OUTBOX: z.string().default('./data/posta.log'),
 });
 
 export type Config = Omit<z.infer<typeof ConfigSchema>, 'COOKIE_SECURE'> & { COOKIE_SECURE: boolean };

@@ -10,12 +10,15 @@ import {
   fromUtf8,
   generatePersonKeyPair,
   generateRecoveryCode,
+  recoveryKeyFromCode,
+  recoveryVerifier,
   unwrapItemKey,
   unwrapVaultKey,
   utf8,
   wrapPrivateKey,
   wrapVaultKey,
   type EncryptedItem,
+  type Envelope,
 } from '@memoriae/crypto';
 import { api, type Accesso, type CassaforteRemota, type TipoVoce, type VoceRemota } from './api';
 
@@ -60,6 +63,7 @@ export async function creaCassaforte(segreto: SegretoAccesso): Promise<{ vaultId
     chiavePubblica: await encodePublicKey(persona.publicKey),
     chiavePrivataCifrata: await wrapPrivateKey(persona.privateKey, vaultKey, 'owner'),
     accessi,
+    verificaRecupero: await recoveryVerifier(recupero.key),
   });
   return { vaultId, vaultKey, codiceRecupero: recupero.code };
 }
@@ -85,6 +89,37 @@ export async function apriConPassword(remota: CassaforteRemota, password: string
     return await unwrapVaultKey(a.chiaveCifrata, key, remota.id, 'password');
   } catch {
     throw new Error('Password errata');
+  }
+}
+
+/** Recupero: il codice stampato apre la cassaforte qui nel browser; al server va solo il verificatore. */
+export async function apriConCodiceRecupero(
+  vaultId: string,
+  chiaveCifrata: Envelope,
+  codice: string,
+): Promise<{ vaultKey: Uint8Array; verificatore: string }> {
+  let key: Uint8Array;
+  try {
+    key = await recoveryKeyFromCode(codice);
+  } catch (e) {
+    throw new Error(e instanceof Error ? e.message : 'Codice di recupero non valido');
+  }
+  try {
+    const vaultKey = await unwrapVaultKey(chiaveCifrata, key, vaultId, 'recovery-code');
+    return { vaultKey, verificatore: await recoveryVerifier(key) };
+  } catch {
+    throw new Error('Il codice di recupero non apre questa cassaforte: controlla di averlo ricopiato bene');
+  }
+}
+
+/** Dopo un recupero: la nuova passkey (o una nuova password) riceve il proprio accesso alla cassaforte. */
+export async function aggiungiAccesso(vaultId: string, vaultKey: Uint8Array, segreto: SegretoAccesso): Promise<void> {
+  if (segreto.tipo === 'passkey') {
+    const k = await deriveKeyFromPasskeySecret(segreto.prf);
+    await api.sostituisciAccesso({ metodo: 'passkey', credentialId: segreto.credentialId, chiaveCifrata: await wrapVaultKey(vaultKey, k, vaultId, 'passkey') });
+  } else {
+    const { key, params } = await deriveKeyFromPassword(segreto.password);
+    await api.sostituisciAccesso({ metodo: 'password', parametri: params, chiaveCifrata: await wrapVaultKey(vaultKey, key, vaultId, 'password') });
   }
 }
 

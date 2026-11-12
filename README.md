@@ -39,7 +39,11 @@ npm run dev -w @memoriae/web               # http://localhost:5173
 # Prova completa nel browser (server e app avviati)
 node e2e/percorso.mjs                      # passkey con PRF
 SENZA_PRF=1 node e2e/percorso.mjs          # dispositivo senza PRF: password di riserva
+node e2e/recupero.mjs                      # passkey persa: recupero su un nuovo dispositivo
 ```
+
+In sviluppo le e-mail (per esempio il codice di recupero) non vengono spedite: compaiono nel terminale
+del server e nel file `packages/server/data/posta.log`.
 
 ## Accesso e apertura della cassaforte
 
@@ -47,6 +51,9 @@ SENZA_PRF=1 node e2e/percorso.mjs          # dispositivo senza PRF: password di 
 - **Aprire la cassaforte** (decifrare): con il segreto PRF della stessa passkey, che resta nel browser.
   Se il dispositivo non supporta PRF, con una password di almeno 12 caratteri (Argon2id).
 - **Codice di recupero**: obbligatorio alla creazione, mostrato una sola volta, da stampare.
+- **Passkey persa**: servono il codice di 6 cifre inviato per e-mail **e** il codice di recupero stampato.
+  Il browser apre la cassaforte con il codice; al server arriva solo un verificatore. Alla fine le vecchie
+  passkey e sessioni vengono disattivate e l'utente riceve un avviso per e-mail.
 
 Ogni modifica su GitHub passa dai controlli automatici (tipi, test, migrazioni su Postgres).
 Hosting previsto: Infomaniak Public Cloud (Svizzera).

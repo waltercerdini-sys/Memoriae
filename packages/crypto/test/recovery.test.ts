@@ -10,6 +10,7 @@ import {
   openRecoveryShare,
   recoverVaultKeyWithSocial,
   recoveryKeyFromCode,
+  recoveryVerifier,
   unwrapVaultKey,
   utf8,
   wrapVaultKey,
@@ -42,6 +43,22 @@ describe('codice di recupero', () => {
     const { code, key } = await generateRecoveryCode();
     const wrapped = await wrapVaultKey(vaultKey, key, 'v1', 'recovery-code');
     expect(await unwrapVaultKey(wrapped, await recoveryKeyFromCode(code), 'v1', 'recovery-code')).toEqual(vaultKey);
+  });
+});
+
+describe('verificatore del codice di recupero', () => {
+  it('è stabile per lo stesso codice, diverso dalla chiave e diverso per codici diversi', async () => {
+    const a = await generateRecoveryCode();
+    const b = await generateRecoveryCode();
+    const va = await recoveryVerifier(a.key);
+    expect(await recoveryVerifier(await recoveryKeyFromCode(a.code))).toBe(va);
+    expect(va).not.toBe(await recoveryVerifier(b.key));
+    expect(va).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    // Il verificatore non apre la cassaforte.
+    const vaultKey = await createVaultKey();
+    const wrapped = await wrapVaultKey(vaultKey, a.key, 'v1', 'recovery-code');
+    const fromVerifier = new Uint8Array(Buffer.from(va, 'base64url'));
+    await expect(unwrapVaultKey(wrapped, fromVerifier, 'v1', 'recovery-code')).rejects.toThrow(MemoriaeCryptoError);
   });
 });
 

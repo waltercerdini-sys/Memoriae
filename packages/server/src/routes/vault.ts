@@ -5,6 +5,7 @@ import type { Database } from '../db/client';
 import { auditLog, checkinSchedules, items, passkeyCredentials, users, vaultKeyWraps, vaults } from '../db/schema';
 import { blobKey, type BlobStore } from '../storage/blobs';
 import { requireUser } from './auth';
+import { verifierHash } from './recovery';
 
 /** Dimensione massima di un file cifrato accettato (25 MB di contenuto + intestazione). */
 export const MAX_ENCRYPTED_FILE_BYTES = 25 * 1024 * 1024 + 64;
@@ -35,6 +36,15 @@ const CreateVault = z.object({
   chiavePubblica: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
   chiavePrivataCifrata: Envelope,
   accessi: z.array(AccessWrap).min(2).max(10),
+  /** Verificatore del codice di recupero (vedi @memoriae/crypto recoveryVerifier). */
+  verificaRecupero: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
+});
+
+const ReplaceAccess = z.object({
+  metodo: z.enum(['passkey', 'password']),
+  credentialId: z.string().max(1024).optional(),
+  parametri: AccessWrap.shape.parametri,
+  chiaveCifrata: Envelope,
 });
 
 const ItemType = z.enum(['account', 'documento', 'cartella', 'istruzione', 'crypto', 'dispositivo']);
@@ -97,7 +107,7 @@ export async function vaultRoutes(app: FastifyInstance, opts: VaultRouteOptions)
     }
 
     await db.transaction(async (tx) => {
-      await tx.insert(vaults).values({ id: body.data.id, ownerId: user.id });
+      await tx.insert(vaults).values({ id: body.data.id, ownerId: user.id, recoveryVerifierHash: verifierHash(body.data.verificaRecupero) });
       await tx.insert(vaultKeyWraps).values(
         body.data.accessi.map((a) => ({
           vaultId: body.data.id,
@@ -128,6 +138,44 @@ export async function vaultRoutes(app: FastifyInstance, opts: VaultRouteOptions)
       chiavePrivataCifrata: u?.sk,
       accessi: wraps.map((w) => ({ metodo: w.method, credentialId: w.credentialId, parametri: w.kdfParams, chiaveCifrata: w.wrappedVaultKey })),
     };
+  });
+
+  /** Aggiunge o sostituisce un accesso: una nuova passkey (dopo un recupero o su un altro dispositivo) o la password. */
+  app.put('/v1/cassaforte/accessi', { preHandler: auth }, async (req, reply) => {
+    const body = ReplaceAccess.safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ errore: 'Accesso non valido' });
+    const user = req.user!;
+    const v = await ownVault(user.id);
+    if (!v) return reply.code(404).send({ errore: 'Nessuna cassaforte' });
+    const a = body.data;
+    if (a.metodo === 'passkey') {
+      if (!a.credentialId) return reply.code(400).send({ errore: 'Passkey non indicata' });
+      const [c] = await db
+        .select({ id: passkeyCredentials.id })
+        .from(passkeyCredentials)
+        .where(and(eq(passkeyCredentials.id, a.credentialId), eq(passkeyCredentials.userId, user.id)));
+      if (!c) return reply.code(400).send({ errore: 'Passkey non tua' });
+    } else if (!a.parametri) {
+      return reply.code(400).send({ errore: 'Parametri della password mancanti' });
+    }
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(vaultKeyWraps)
+        .where(
+          a.metodo === 'passkey'
+            ? and(eq(vaultKeyWraps.vaultId, v.id), eq(vaultKeyWraps.method, 'passkey'), eq(vaultKeyWraps.credentialId, a.credentialId!))
+            : and(eq(vaultKeyWraps.vaultId, v.id), eq(vaultKeyWraps.method, 'password')),
+        );
+      await tx.insert(vaultKeyWraps).values({
+        vaultId: v.id,
+        method: a.metodo,
+        credentialId: a.credentialId ?? null,
+        kdfParams: a.parametri ?? null,
+        wrappedVaultKey: a.chiaveCifrata,
+      });
+      await tx.insert(auditLog).values({ actor: user.id, action: 'accesso-aggiunto', vaultId: v.id, details: { metodo: a.metodo } });
+    });
+    return { ok: true };
   });
 
   // ---- Voci -----------------------------------------------------------------

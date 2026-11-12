@@ -122,7 +122,7 @@ export async function authRoutes(app: FastifyInstance, opts: AuthRouteOptions) {
 
     const response = body.data.risposta as unknown as AuthenticationResponseJSON;
     const [cred] = await db.select().from(passkeyCredentials).where(eq(passkeyCredentials.id, String(response.id))).limit(1);
-    if (!cred) return reply.code(401).send({ errore: 'Passkey sconosciuta' });
+    if (!cred) return reply.code(401).send({ errore: 'Passkey non riconosciuta. Se hai recuperato l\'accesso da un altro dispositivo, questa passkey non vale più.' });
 
     const ok = await passkeys.verifyAuthentication(response, ch.challenge, {
       id: cred.id,

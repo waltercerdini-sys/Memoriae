@@ -79,6 +79,23 @@ export const sessions = pgTable('sessions', {
   createdAt: createdAt(),
 }, (t) => [index('sessions_user_idx').on(t.userId)]);
 
+/**
+ * Richieste di recupero dell'accesso (passkey persa).
+ * Servono due prove: il codice ricevuto per e-mail e il codice di recupero stampato.
+ */
+export const recoveryRequests = pgTable('recovery_requests', {
+  id: id(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  emailCodeHash: text('email_code_hash').notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  attempts: integer('attempts').notNull().default(0),
+  /** Token della fase successiva, dopo la verifica dell'e-mail (solo hash). */
+  tokenHash: text('token_hash'),
+  tokenExpiresAt: timestamp('token_expires_at', { withTimezone: true }),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  createdAt: createdAt(),
+}, (t) => [index('recovery_requests_user_idx').on(t.userId)]);
+
 export const vaults = pgTable('vaults', {
   id: id(),
   ownerId: uuid('owner_id').notNull().references(() => users.id, { onDelete: 'restrict' }),
@@ -89,6 +106,8 @@ export const vaults = pgTable('vaults', {
   kmsRefEmergenza: text('kms_ref_emergenza'),
   kmsRefSocialRecovery: text('kms_ref_social_recovery'),
   socialRecoveryThreshold: integer('social_recovery_threshold'),
+  /** SHA-256 del verificatore del codice di recupero: prova che chi recupera possiede il codice, senza poterlo usare. */
+  recoveryVerifierHash: text('recovery_verifier_hash'),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 }, (t) => [uniqueIndex('vaults_owner_idx').on(t.ownerId)]);

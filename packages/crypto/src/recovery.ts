@@ -85,6 +85,17 @@ export async function recoveryKeyFromCode(code: string): Promise<Uint8Array> {
   return key;
 }
 
+/**
+ * Verificatore del codice di recupero.
+ * Il server lo conserva (come hash) per controllare che chi chiede il recupero possieda il codice,
+ * senza poterne ricavare la chiave: è derivato in un dominio separato e a senso unico.
+ */
+export async function recoveryVerifier(recoveryKey: Uint8Array): Promise<string> {
+  const sodium = await getSodium();
+  const v = sodium.crypto_kdf_derive_from_key(KEY_BYTES, 2, 'memrecov', recoveryKey);
+  return sodium.to_base64(v, sodium.base64_variants.URLSAFE_NO_PADDING);
+}
+
 // ---------------------------------------------------------------------------
 // Recupero sociale (opzionale)
 // ---------------------------------------------------------------------------

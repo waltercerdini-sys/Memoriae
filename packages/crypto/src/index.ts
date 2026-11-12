@@ -52,6 +52,7 @@ export {
 export {
   generateRecoveryCode,
   recoveryKeyFromCode,
+  recoveryVerifier,
   createSocialRecovery,
   openRecoveryShare,
   recoverVaultKeyWithSocial,

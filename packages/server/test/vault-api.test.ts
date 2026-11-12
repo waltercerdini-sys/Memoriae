@@ -10,6 +10,7 @@ import {
   generateKey,
   generatePersonKeyPair,
   generateRecoveryCode,
+  recoveryVerifier,
   unwrapItemKey,
   unwrapVaultKey,
   utf8,
@@ -25,6 +26,7 @@ import { buildApp } from '../src/app';
 import type { Database } from '../src/db/client';
 import { auditLog } from '../src/db/schema';
 import { MemoryBlobStore } from '../src/storage/blobs';
+import { MemoryMailer } from '../src/mail/mailer';
 import { createFakePasskeys, createTestDatabase } from './helpers';
 
 let db: Database;
@@ -33,7 +35,7 @@ let app: FastifyInstance;
 
 beforeAll(async () => {
   ({ db, close } = await createTestDatabase());
-  app = buildApp({ db, passkeys: createFakePasskeys(), blobs: new MemoryBlobStore(), cookieSecure: false, logLevel: 'silent' });
+  app = buildApp({ db, passkeys: createFakePasskeys(), blobs: new MemoryBlobStore(), mailer: new MemoryMailer(), cookieSecure: false, logLevel: 'silent' });
   await app.ready();
 });
 
@@ -82,6 +84,7 @@ async function createVault(cookie: string, credentialId: string) {
         { metodo: 'passkey', credentialId, chiaveCifrata: await wrapVaultKey(vaultKey, passkeyKey, vaultId, 'passkey') },
         { metodo: 'recovery-code', chiaveCifrata: await wrapVaultKey(vaultKey, recovery.key, vaultId, 'recovery-code') },
       ],
+      verificaRecupero: await recoveryVerifier(recovery.key),
     },
   });
   return { res, vaultId, vaultKey, passkeyKey, recovery };
@@ -150,6 +153,7 @@ describe('cassaforte e voci', () => {
           { metodo: 'passkey', credentialId, chiaveCifrata: await wrapVaultKey(vaultKey, key, id, 'passkey') },
           { metodo: 'password', parametri: { alg: 'argon2id13', salt: 'abc', opslimit: 3, memlimit: 67108864 }, chiaveCifrata: await wrapVaultKey(vaultKey, key, id, 'password') },
         ],
+        verificaRecupero: await recoveryVerifier(key),
       },
     });
     expect(res.statusCode).toBe(400);
