@@ -39,3 +39,5 @@ jobs:
         run: npm test
       - name: Migrazioni su Postgres vero
         run: npm run db:migrate -w @memoriae/server
+      - name: Sito vetrina
+        run: npm run build -w @memoriae/site

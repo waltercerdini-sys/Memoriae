@@ -1,0 +1,655 @@
+/*
+  Sito di MEMORIAE: stessa identità dell'app (verde bosco, carta chiara, Domine e Nunito Sans).
+  Impianto: colonna di lettura a sinistra, testo grande per chi ha più di 60 anni;
+  un solo elemento forte, la striscia dei 14 giorni d'attesa.
+*/
+:root {
+  --bosco: #23362f;
+  --carta: #f7f5ef;
+  --verde: #2f6b57;
+  --salvia: #e6ece5;
+  --tenue: #4d5d56;
+  --linea: #cfd8cf;
+  --foglio: #ffffff;
+  --giallo: #fff1b8;
+  --su-bosco: #f7f5ef;
+  --serif: 'Domine', Georgia, 'Times New Roman', serif;
+  --sans: 'Nunito Sans', 'Segoe UI', Arial, sans-serif;
+  --larghezza: 1120px;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bosco: #e7efe9;
+    --carta: #16211d;
+    --verde: #7fc3a7;
+    --salvia: #1f2e28;
+    --tenue: #a9b8b1;
+    --linea: #33453d;
+    --foglio: #1b2823;
+    --giallo: #5a4b12;
+    --su-bosco: #16211d;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme='dark'] {
+  --bosco: #e7efe9;
+  --carta: #16211d;
+  --verde: #7fc3a7;
+  --salvia: #1f2e28;
+  --tenue: #a9b8b1;
+  --linea: #33453d;
+  --foglio: #1b2823;
+  --giallo: #5a4b12;
+  --su-bosco: #16211d;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--carta);
+  color: var(--bosco);
+  font-family: var(--sans);
+  font-size: 1.1875rem; /* 19px: si legge senza occhiali da vicino */
+  line-height: 1.6;
+}
+
+.giro {
+  max-width: var(--larghezza);
+  margin-inline: auto;
+  padding-left: max(20px, env(safe-area-inset-left, 0px));
+  padding-right: max(20px, env(safe-area-inset-right, 0px));
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--serif);
+  font-weight: 700;
+  line-height: 1.2;
+  text-wrap: balance;
+  margin: 0;
+}
+
+h1 {
+  font-size: clamp(2.2rem, 5vw, 3.4rem);
+  letter-spacing: -0.01em;
+}
+
+h2 {
+  font-size: clamp(1.7rem, 3.4vw, 2.35rem);
+}
+
+h3 {
+  font-size: 1.3rem;
+}
+
+p {
+  margin: 0;
+  max-width: 62ch;
+}
+
+a {
+  color: var(--verde);
+  text-underline-offset: 3px;
+}
+
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible {
+  outline: 3px solid var(--verde);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+mark.da-completare {
+  background: var(--giallo);
+  color: inherit;
+  padding: 0 4px;
+  border-radius: 3px;
+}
+
+/* --- Testata --------------------------------------------------------------- */
+.testata {
+  border-bottom: 1px solid var(--linea);
+}
+
+.testata .giro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-block: 18px;
+}
+
+.marchio {
+  font-family: var(--sans);
+  font-weight: 700;
+  letter-spacing: 0.32em;
+  font-size: 1rem;
+  color: var(--bosco);
+  text-decoration: none;
+}
+
+.menu {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 22px;
+  font-size: 1rem;
+}
+
+.menu a {
+  color: var(--bosco);
+  text-decoration: none;
+}
+
+.menu a:hover {
+  text-decoration: underline;
+}
+
+.bottone {
+  display: inline-block;
+  background: var(--verde);
+  color: var(--carta);
+  font-weight: 700;
+  text-decoration: none;
+  padding: 14px 26px;
+  border-radius: 12px;
+  font-size: 1.05rem;
+}
+
+.menu a.bottone {
+  color: var(--carta);
+  padding: 10px 18px;
+}
+
+.bottone:hover {
+  filter: brightness(1.08);
+}
+
+.secondario {
+  font-weight: 700;
+}
+
+/* --- Apertura -------------------------------------------------------------- */
+.apertura .giro {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  gap: 56px;
+  align-items: center;
+  padding-block: 72px 64px;
+}
+
+.apertura .testo {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.apertura .sotto {
+  font-size: 1.25rem;
+  color: var(--tenue);
+}
+
+.azioni {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 24px;
+}
+
+.piccolo {
+  font-size: 0.95rem;
+  color: var(--tenue);
+}
+
+/* Il foglio dell'inventario: com'è davvero l'app */
+.foglio {
+  margin: 0;
+  background: var(--foglio);
+  border: 1px solid var(--linea);
+  border-radius: 18px;
+  padding: 26px 26px 18px;
+  box-shadow: 0 18px 40px -24px rgba(35, 54, 47, 0.45);
+  min-width: 0;
+}
+
+.foglio h2 {
+  font-size: 1.25rem;
+  margin-bottom: 4px;
+}
+
+.foglio .data {
+  font-size: 0.9rem;
+  color: var(--tenue);
+  margin-bottom: 14px;
+}
+
+.righe {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.righe li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 14px;
+  padding: 12px 0;
+  border-top: 1px solid var(--linea);
+}
+
+.righe .cosa {
+  font-weight: 700;
+}
+
+.righe .chi {
+  font-size: 0.95rem;
+  color: var(--verde);
+  font-weight: 700;
+  text-align: right;
+}
+
+.righe .come {
+  grid-column: 1 / -1;
+  font-size: 0.95rem;
+  color: var(--tenue);
+}
+
+/* --- Sezioni --------------------------------------------------------------- */
+.sezione .giro {
+  padding-block: 72px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.sezione.salvia {
+  background: var(--salvia);
+}
+
+.intro {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.numeri {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 28px;
+}
+
+.numeri div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.numeri strong {
+  font-family: var(--serif);
+  font-size: 1.35rem;
+  line-height: 1.3;
+}
+
+.fonte {
+  font-size: 0.9rem;
+  color: var(--tenue);
+}
+
+.passi {
+  list-style: none;
+  counter-reset: passo;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 36px;
+}
+
+.passi li {
+  counter-increment: passo;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.passi li::before {
+  content: counter(passo);
+  font-family: var(--serif);
+  font-size: 2.6rem;
+  line-height: 1;
+  color: var(--verde);
+}
+
+/* --- La striscia dei 14 giorni ---------------------------------------------- */
+.attesa {
+  background: var(--bosco);
+  color: var(--su-bosco);
+}
+
+.attesa .giro {
+  padding-block: 76px;
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+.attesa a {
+  color: var(--su-bosco);
+}
+
+.attesa p {
+  color: var(--su-bosco);
+  opacity: 0.92;
+}
+
+.percorso {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2.2fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+}
+
+.tappa {
+  border: 1px solid color-mix(in srgb, var(--su-bosco) 35%, transparent);
+  border-radius: 14px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.tappa b {
+  font-family: var(--serif);
+  font-size: 1.1rem;
+}
+
+.tappa span {
+  font-size: 0.95rem;
+  opacity: 0.88;
+}
+
+.giorni {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.calendario {
+  display: grid;
+  grid-template-columns: repeat(14, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.calendario i {
+  display: block;
+  aspect-ratio: 1;
+  max-width: 100%;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--su-bosco) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--su-bosco) 40%, transparent);
+  font-style: normal;
+  font-size: 0.75rem;
+  display: grid;
+  place-items: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.giorni .blocca {
+  font-size: 0.95rem;
+}
+
+.giorni .blocca strong {
+  background: var(--su-bosco);
+  color: var(--bosco);
+  padding: 2px 10px;
+  border-radius: 999px;
+  margin-right: 6px;
+}
+
+/* --- Principi -------------------------------------------------------------- */
+.principi {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 30px 48px;
+  margin: 0;
+}
+
+.principi div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 2px solid var(--verde);
+  padding-top: 14px;
+  min-width: 0;
+}
+
+.principi dt {
+  font-family: var(--serif);
+  font-weight: 700;
+  font-size: 1.2rem;
+}
+
+.principi dd {
+  margin: 0;
+  color: var(--tenue);
+}
+
+.non-fa {
+  background: var(--foglio);
+  border: 1px solid var(--linea);
+  border-radius: 16px;
+  padding: 24px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.non-fa ul {
+  margin: 0;
+  padding-left: 1.2em;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* --- Prezzi ---------------------------------------------------------------- */
+.prezzi {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.prezzo {
+  background: var(--foglio);
+  border: 1px solid var(--linea);
+  border-radius: 16px;
+  padding: 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.prezzo.scelto {
+  border: 2px solid var(--verde);
+}
+
+.prezzo .cifra {
+  font-family: var(--serif);
+  font-size: 2.2rem;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.prezzo .cifra small {
+  font-family: var(--sans);
+  font-size: 1rem;
+  color: var(--tenue);
+}
+
+.prezzo ul {
+  margin: 0;
+  padding-left: 1.2em;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--tenue);
+  font-size: 1rem;
+}
+
+/* --- Domande --------------------------------------------------------------- */
+.domande {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--linea);
+}
+
+.domande details {
+  border-bottom: 1px solid var(--linea);
+  padding-block: 4px;
+}
+
+.domande summary {
+  cursor: pointer;
+  font-weight: 700;
+  padding: 14px 0;
+  list-style-position: outside;
+}
+
+.domande details p {
+  padding-bottom: 16px;
+  color: var(--tenue);
+}
+
+/* --- Partner e contatti ---------------------------------------------------- */
+.sezione .giro.due,
+.due {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 48px;
+  align-items: start;
+}
+
+.due > div {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.recapiti {
+  font-style: normal;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* --- Piede ----------------------------------------------------------------- */
+.piede {
+  border-top: 1px solid var(--linea);
+  font-size: 0.95rem;
+  color: var(--tenue);
+}
+
+.piede .giro {
+  padding-block: 32px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 14px 32px;
+}
+
+.piede nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+}
+
+/* --- Pagine legali --------------------------------------------------------- */
+.legale .giro {
+  padding-block: 56px 72px;
+  max-width: 860px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.legale h2 {
+  font-size: 1.45rem;
+  margin-top: 22px;
+}
+
+.legale ol,
+.legale ul {
+  margin: 0;
+  padding-left: 1.3em;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 62ch;
+}
+
+.avvertenza {
+  background: var(--salvia);
+  border-radius: 12px;
+  padding: 16px 20px;
+  font-size: 1rem;
+}
+
+/* --- Telefono -------------------------------------------------------------- */
+@media (max-width: 860px) {
+  .apertura .giro,
+  .sezione .giro.due,
+  .due {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 36px;
+  }
+
+  .apertura .giro {
+    padding-block: 44px;
+  }
+
+  .numeri,
+  .passi,
+  .prezzi,
+  .principi {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .percorso {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sezione .giro,
+  .attesa .giro {
+    padding-block: 52px;
+  }
+
+  .calendario {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+}

@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#23362F" />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="description" content="Come MEMORIAE tratta i dati personali, secondo la legge svizzera sulla protezione dei dati." />
+    <title>Protezione dei dati – MEMORIAE</title>
+    <script type="module" src="/src/main.js"></script>
+  </head>
+  <body>
+    <header class="testata">
+      <div class="giro">
+        <a class="marchio" href="./">MEMORIAE</a>
+        <nav class="menu" aria-label="Sezioni">
+          <a href="./#come-funziona">Come funziona</a>
+          <a href="./#prezzi">Prezzi</a>
+          <a class="bottone" href="{{appUrl}}">Accedi</a>
+        </nav>
+      </div>
+    </header>
+    <main class="legale">
+      <div class="giro">
+        <h1>Protezione dei dati</h1>
+        <p class="avvertenza">Bozza del {{aggiornatoIl}}, da far verificare a un giurista prima della messa in linea.</p>
+        <p>Questa informativa spiega quali dati personali trattiamo, perché e per quanto tempo, secondo la legge federale sulla protezione dei dati (LPD).</p>
+
+        <h2>Chi è responsabile</h2>
+        <p>{{ragioneSociale}}, {{via}}, {{npa}} {{localita}}, {{paese}}. Contatto per la protezione dei dati: {{email}}.</p>
+
+        <h2>Il principio</h2>
+        <p>Il contenuto della tua cassaforte (titoli, note, documenti, volontà) viene cifrato sul tuo dispositivo prima di arrivare ai nostri server. Non possiamo leggerlo e non lo consegniamo a nessuno in chiaro.</p>
+
+        <h2>Quali dati trattiamo</h2>
+        <ul>
+          <li><b>Il tuo account:</b> nome, indirizzo e-mail, la parte pubblica della tua passkey, le date di accesso e dei controlli «sono qui».</li>
+          <li><b>Le persone che indichi:</b> nome, indirizzo e-mail e ruolo, per inviare gli inviti e gli avvisi previsti.</li>
+          <li><b>Le richieste d'apertura:</b> la spiegazione e i documenti allegati (per esempio un certificato di morte). Li leggono solo gli operatori di MEMORIAE; sono conservati cifrati.</li>
+          <li><b>Il piano:</b> piano scelto, scadenza e un riferimento al cliente presso Stripe. I dati della carta o di TWINT non arrivano a noi.</li>
+          <li><b>Registri tecnici:</b> data, ora, tipo di richiesta e indirizzo IP, per la sicurezza del servizio, conservati al massimo 30 giorni.</li>
+          <li><b>Registro degli eventi:</b> chi ha fatto cosa e quando (per esempio «richiesta bloccata»), senza contenuti, per ricostruire ogni apertura.</li>
+        </ul>
+
+        <h2>Perché</h2>
+        <p>Per fornire il servizio che hai chiesto (contratto), per la sicurezza e la prevenzione degli abusi, e per rispettare gli obblighi di legge, per esempio quelli contabili.</p>
+
+        <h2>A chi li affidiamo</h2>
+        <ul>
+          <li><b>Infomaniak Network SA</b>, Svizzera: server, archiviazione e invio delle e-mail. I dati restano in Svizzera.</li>
+          <li><b>Stripe Payments Europe Ltd</b>, Irlanda: pagamenti con TWINT e carta. Stripe può trattare dati negli Stati Uniti nel quadro dello Swiss-U.S. Data Privacy Framework o di clausole contrattuali standard.</li>
+        </ul>
+        <p>Non vendiamo dati, non facciamo pubblicità e non usiamo strumenti di analisi o di tracciamento. I caratteri del sito sono sui nostri server: aprire il sito non contatta servizi di terzi.</p>
+
+        <h2>Cookie</h2>
+        <p>Usiamo un solo cookie tecnico per mantenerti collegato all'app. Il sito di presentazione non usa cookie.</p>
+
+        <h2>Per quanto tempo</h2>
+        <ul>
+          <li>Account e cassaforte: finché li usi; dopo la cancellazione, al massimo 30 giorni (copie di sicurezza: altri 60 giorni).</li>
+          <li>Dopo un'apertura per decesso: 12 mesi, poi cancellazione.</li>
+          <li>Documenti delle richieste: 12 mesi dopo la chiusura della richiesta.</li>
+          <li>Dati contabili: 10 anni, come prevede la legge.</li>
+        </ul>
+
+        <h2>Sicurezza</h2>
+        <p>Cifratura sul dispositivo, accesso con passkey, metà delle chiavi custodite separatamente, connessioni cifrate, registro degli eventi non modificabile, accessi del personale limitati agli operatori che verificano le richieste.</p>
+
+        <h2>I tuoi diritti</h2>
+        <p>Puoi chiederci in ogni momento informazioni sui tuoi dati, la loro rettifica o cancellazione e la consegna in un formato elettronico corrente (art. 25 segg. LPD), scrivendo a {{email}}. Puoi anche rivolgerti all'Incaricato federale della protezione dei dati e della trasparenza (IFPDT).</p>
+
+        <p class="piccolo">Versione del {{aggiornatoIl}}.</p>
+      </div>
+    </main>
+    <footer class="piede">
+      <div class="giro">
+        <span>{{marchio}} è un servizio di {{ragioneSociale}}, {{localita}} ({{cantone}})</span>
+        <nav aria-label="Informazioni legali">
+          <a href="condizioni.html">Condizioni d'uso</a>
+          <a href="privacy.html">Protezione dei dati</a>
+          <a href="note-legali.html">Note legali</a>
+        </nav>
+      </div>
+    </footer>
+  </body>
+</html>

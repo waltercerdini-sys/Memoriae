@@ -1,0 +1,21 @@
+{
+  "_nota": "Dati dell'azienda usati in tutte le pagine. I valori tra parentesi quadre sono da completare: compaiono evidenziati in giallo finché non vengono sostituiti.",
+  "marchio": "MEMORIAE",
+  "ragioneSociale": "Valmara14 Sagl",
+  "formaGiuridica": "società a garanzia limitata (Sagl) di diritto svizzero",
+  "via": "[via e numero civico]",
+  "npa": "6822",
+  "localita": "Arogno",
+  "cantone": "Ticino",
+  "paese": "Svizzera",
+  "idi": "[numero IDI CHE-xxx.xxx.xxx]",
+  "registro": "Registro di commercio del Cantone Ticino",
+  "gerente": "Walter Cerdini",
+  "email": "[indirizzo e-mail di contatto]",
+  "telefono": "[numero di telefono]",
+  "iva": "[numero IVA oppure: non iscritta al registro IVA]",
+  "dominio": "[dominio del sito]",
+  "appUrl": "http://localhost:5173",
+  "foro": "Lugano",
+  "aggiornatoIl": "12 novembre 2026"
+}

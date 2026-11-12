@@ -20,6 +20,7 @@ Il documento di architettura completo è nel progetto Claude "Eredità digitale 
 | `packages/crypto` | Nucleo di cifratura: cassaforte, voci, pacchetti destinatario, rilascio a due metà, recupero, impronta |
 | `packages/server` | Server: API (Fastify), passkey e sessioni, schema del database (Drizzle, PostgreSQL), casi di attivazione, controllo periodico, catalogo fornitori |
 | `packages/web` | App web (React, Vite): registrazione con passkey, codice di recupero, inventario cifrato nel browser |
+| `packages/site` | Sito vetrina: presentazione, prezzi, condizioni d'uso, protezione dei dati, note legali |
 | `e2e/` | Prova completa nel browser con passkey virtuale di Chrome |
 
 ## Provare l'app sul proprio computer (il modo più semplice)
@@ -36,6 +37,16 @@ Le e-mail (codici, inviti, promemoria, collegamenti «blocca») compaiono nel te
 In prova l'attesa prima di un'apertura dura 2 minuti (invece di 14 giorni o 72 ore) e chiunque può fare
 da operatore, ma mai sulle cassaforti in cui è coinvolto. Per provare tutto il percorso servono quattro
 persone: si usano finestre diverse del browser (per esempio Safari, Chrome e una finestra privata).
+
+## Sito vetrina
+
+```bash
+npm run sito      # http://localhost:5174
+```
+
+I dati dell'azienda (indirizzo, IDI, e-mail, telefono, IVA, dominio) stanno in un solo file,
+`packages/site/azienda.json`: i valori tra parentesi quadre compaiono evidenziati in giallo finché non vengono completati.
+Le condizioni d'uso e l'informativa sulla protezione dei dati sono bozze da far verificare a un giurista.
 
 ## Comandi
 
