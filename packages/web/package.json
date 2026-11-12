@@ -1,0 +1,25 @@
+{
+  "name": "@memoriae/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "App web di MEMORIAE: cassaforte cifrata nel browser",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.3.0",
+    "typescript": "5.6.3",
+    "vite": "8.3.8"
+  },
+  "dependencies": {
+    "@memoriae/crypto": "0.1.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  }
+}

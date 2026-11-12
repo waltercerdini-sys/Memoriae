@@ -1,0 +1,297 @@
+:root {
+  --scuro: #23362f;
+  --chiaro: #f7f5ef;
+  --sfondo2: #e9eee8;
+  --accento: #2f6b57;
+  --testo: #23362f;
+  --tenue: #4f5f58;
+  --pericolo: #9b2c2c;
+  --avviso-sfondo: #fdf3e1;
+  --avviso-testo: #6b4500;
+  --raggio: 14px;
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--chiaro);
+  color: var(--testo);
+  font-family: 'Nunito Sans', Arial, sans-serif;
+  font-size: 19px;
+  line-height: 1.5;
+}
+
+h1,
+h2,
+h3 {
+  font-family: 'Domine', Georgia, serif;
+  line-height: 1.2;
+  margin: 0;
+}
+
+h1 {
+  font-size: 1.9rem;
+}
+h2 {
+  font-size: 1.3rem;
+}
+h3 {
+  font-size: 1.05rem;
+  margin-top: 0.8rem;
+}
+
+.pagina {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.testata {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: var(--scuro);
+  color: var(--chiaro);
+}
+
+.marchio {
+  font-weight: 700;
+  letter-spacing: 4px;
+  color: #a9d3bf;
+}
+
+.testata .link {
+  color: var(--chiaro);
+}
+
+.contenuto {
+  flex: 1;
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 28px 16px 64px;
+}
+
+.passo {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+p {
+  margin: 0;
+}
+
+.tenue {
+  color: var(--tenue);
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-weight: 700;
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+  font-weight: 400;
+  padding: 14px;
+  border: 2px solid #b9c4bf;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--testo);
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible {
+  outline: 3px solid var(--accento);
+  outline-offset: 2px;
+}
+
+.spunta {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 12px;
+  font-weight: 400;
+}
+
+.spunta input {
+  width: 26px;
+  height: 26px;
+  margin-top: 2px;
+  flex: none;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border-radius: 12px;
+  min-height: 56px;
+  padding: 12px 20px;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.primario {
+  background: var(--accento);
+  color: #fff;
+  border: none;
+  font-weight: 700;
+}
+
+.secondario {
+  background: transparent;
+  color: var(--accento);
+  border: 2px solid var(--accento);
+  font-weight: 700;
+}
+
+.pericolo {
+  background: transparent;
+  color: var(--pericolo);
+  border: 2px solid var(--pericolo);
+}
+
+.link {
+  background: none;
+  border: none;
+  color: var(--accento);
+  text-decoration: underline;
+  min-height: 44px;
+  align-self: flex-start;
+  padding: 8px 0;
+}
+
+.avviso {
+  background: var(--avviso-sfondo);
+  color: var(--avviso-testo);
+  padding: 14px 16px;
+  border-radius: 10px;
+}
+
+.codice {
+  font-family: 'Courier New', monospace;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  word-spacing: 6px;
+  background: #fff;
+  border: 2px dashed var(--accento);
+  border-radius: var(--raggio);
+  padding: 20px;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.riquadro {
+  background: var(--sfondo2);
+  border-radius: var(--raggio);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.riquadro ol {
+  margin: 0;
+  padding-left: 22px;
+}
+
+.etichetta {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--accento);
+}
+
+.note {
+  white-space: pre-wrap;
+}
+
+.pillola {
+  display: inline-block;
+  background: var(--accento);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+  align-self: flex-start;
+}
+
+.pillola.chiara {
+  background: var(--sfondo2);
+  color: var(--scuro);
+}
+
+.voci {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.voce,
+.scelta {
+  width: 100%;
+  text-align: left;
+  background: #fff;
+  border: 2px solid var(--sfondo2);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px 18px;
+}
+
+.voce .titolo,
+.scelta .titolo {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--testo);
+}
+
+.dettagli {
+  display: flex;
+  gap: 8px;
+}
+
+.scelte {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+@media (min-width: 560px) {
+  .scelte {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media print {
+  .testata,
+  button,
+  .spunta,
+  .tenue {
+    display: none !important;
+  }
+  .codice {
+    border: 2px solid #000;
+  }
+}

@@ -18,7 +18,9 @@ Il documento di architettura completo è nel progetto Claude "Eredità digitale 
 | Cartella | Contenuto |
 | --- | --- |
 | `packages/crypto` | Nucleo di cifratura: cassaforte, voci, pacchetti destinatario, rilascio a due metà, recupero, impronta |
-| `packages/server` | Server: API (Fastify), schema del database (Drizzle, PostgreSQL), casi di attivazione, controllo periodico, catalogo fornitori |
+| `packages/server` | Server: API (Fastify), passkey e sessioni, schema del database (Drizzle, PostgreSQL), casi di attivazione, controllo periodico, catalogo fornitori |
+| `packages/web` | App web (React, Vite): registrazione con passkey, codice di recupero, inventario cifrato nel browser |
+| `e2e/` | Prova completa nel browser con passkey virtuale di Chrome |
 
 ## Comandi
 
@@ -32,7 +34,19 @@ cp .env.example .env
 docker compose up -d                       # Postgres 16
 npm run db:migrate -w @memoriae/server     # migrazioni + catalogo fornitori
 npm run dev -w @memoriae/server            # http://localhost:3000/health
+npm run dev -w @memoriae/web               # http://localhost:5173
+
+# Prova completa nel browser (server e app avviati)
+node e2e/percorso.mjs                      # passkey con PRF
+SENZA_PRF=1 node e2e/percorso.mjs          # dispositivo senza PRF: password di riserva
 ```
+
+## Accesso e apertura della cassaforte
+
+- **Entrare** (dimostrare chi sei): sempre con la passkey (Face ID, impronta, PIN).
+- **Aprire la cassaforte** (decifrare): con il segreto PRF della stessa passkey, che resta nel browser.
+  Se il dispositivo non supporta PRF, con una password di almeno 12 caratteri (Argon2id).
+- **Codice di recupero**: obbligatorio alla creazione, mostrato una sola volta, da stampare.
 
 Ogni modifica su GitHub passa dai controlli automatici (tipi, test, migrazioni su Postgres).
 Hosting previsto: Infomaniak Public Cloud (Svizzera).
