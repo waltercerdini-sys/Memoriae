@@ -70,7 +70,19 @@ export function Inventario({ vaultKey, utente }: { vaultKey: Uint8Array; utente:
                 <ol>{f.perGliEredi.map((x) => <li key={x}>{x}</li>)}</ol>
               </>
             )}
-            <p className="tenue">Indicazioni in corso di verifica sul sito del fornitore.</p>
+            <p className="tenue">
+              {f.fonte ? (
+                <>
+                  Fonte:{' '}
+                  <a href={f.fonte} target="_blank" rel="noreferrer noopener">
+                    pagina ufficiale
+                  </a>
+                  . Indicazioni da ricontrollare prima di agire.
+                </>
+              ) : (
+                'Indicazioni generali, in corso di verifica con il fornitore.'
+              )}
+            </p>
           </div>
         )}
         {v.haFile && v.contenuto.file && (

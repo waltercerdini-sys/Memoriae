@@ -60,6 +60,7 @@ export interface Fornitore {
   categoria: string;
   daVivi: string[];
   perGliEredi: string[];
+  fonte: string | null;
 }
 
 export const api = {

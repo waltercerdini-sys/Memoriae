@@ -46,6 +46,7 @@ export function buildApp({ db, passkeys, blobs, cookieSecure, logLevel = 'info' 
         categoria: providers.category,
         daVivi: providers.livingSteps,
         perGliEredi: providers.heirSteps,
+        fonte: providers.sourceUrl,
         verificatoIl: providers.verifiedAt,
       })
       .from(providers)
