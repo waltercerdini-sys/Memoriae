@@ -5,6 +5,7 @@ import { auditLog, checkinSchedules, persons, users, vaults } from '../db/schema
 import { evaluateCheckin, recordReminderSent } from '../domain/checkin';
 import type { Mailer } from '../mail/mailer';
 import { checkinTokenHash } from '../routes/checkin';
+import { releaseDueCases } from './release';
 
 /**
  * Lavori periodici: promemoria «sono qui», avviso ai fiduciari, rilasci a fine attesa.
@@ -20,13 +21,6 @@ export interface JobReport {
   promemoria: number;
   avvisiFiduciari: number;
   rilasci: number;
-}
-
-type ExtraJob = (ctx: JobContext, now: Date) => Promise<Partial<JobReport>>;
-const extraJobs: ExtraJob[] = [];
-/** Permette ad altri moduli (attivazione) di aggiungere i propri lavori periodici. */
-export function registerJob(job: ExtraJob) {
-  extraJobs.push(job);
 }
 
 export async function runJobs(ctx: JobContext, now = new Date()): Promise<JobReport> {
@@ -80,10 +74,7 @@ export async function runJobs(ctx: JobContext, now = new Date()): Promise<JobRep
     }
   }
 
-  for (const job of extraJobs) {
-    const r = await job(ctx, now);
-    report.rilasci += r.rilasci ?? 0;
-  }
+  report.rilasci = await releaseDueCases(ctx, now);
   return report;
 }
 

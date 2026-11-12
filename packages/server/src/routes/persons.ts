@@ -197,17 +197,6 @@ export async function personRoutes(app: FastifyInstance, opts: PersonRouteOption
     return { ok: true };
   });
 
-  /** Le cassaforti in cui io sono persona di fiducia o destinatario. */
-  app.get('/v1/fiducia', { preHandler: auth }, async (req) => {
-    const rows = await db
-      .select({ ruolo: persons.role, proprietario: users.name })
-      .from(persons)
-      .innerJoin(vaults, eq(vaults.id, persons.vaultId))
-      .innerJoin(users, eq(users.id, vaults.ownerId))
-      .where(and(eq(persons.userId, req.user!.id), eq(persons.inviteStatus, 'accettato')));
-    return { cassaforti: rows };
-  });
-
   // ---- Rilascio ---------------------------------------------------------------
 
   app.get('/v1/cassaforte/rilascio', { preHandler: auth }, async (req, reply) => {

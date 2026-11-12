@@ -62,7 +62,8 @@ export function reject(c: ActivationCase, operator: string, note: string): Activ
   return { ...c, status: 'respinta', reviewedBy: operator, reviewNote: note };
 }
 
-export function approve(c: ActivationCase, operator: string, now: Date): ActivationCase {
+/** `waitingMs` permette un'attesa più breve solo nelle prove sul proprio computer. */
+export function approve(c: ActivationCase, operator: string, now: Date, waitingMs = WAITING_PERIOD_MS[c.scope]): ActivationCase {
   expect(c, ['in-verifica'], 'approvare');
   if (c.reviewedBy && c.reviewedBy !== operator) {
     throw new ActivationError('La verifica va conclusa dallo stesso operatore che l\'ha avviata');
@@ -71,7 +72,7 @@ export function approve(c: ActivationCase, operator: string, now: Date): Activat
     ...c,
     status: 'in-attesa',
     reviewedBy: operator,
-    waitingUntil: new Date(now.getTime() + WAITING_PERIOD_MS[c.scope]),
+    waitingUntil: new Date(now.getTime() + waitingMs),
   };
 }
 

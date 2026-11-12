@@ -1,10 +1,12 @@
 import cookie from '@fastify/cookie';
 import { asc, sql } from 'drizzle-orm';
+import { randomBytes } from 'node:crypto';
 import Fastify, { type FastifyInstance } from 'fastify';
 import type { PasskeyService } from './auth/passkeys';
 import type { Database } from './db/client';
 import { providers } from './db/schema';
 import type { Mailer } from './mail/mailer';
+import { activationRoutes, type ActivationOptions } from './routes/activation';
 import { authRoutes } from './routes/auth';
 import { checkinRoutes } from './routes/checkin';
 import { personRoutes } from './routes/persons';
@@ -23,9 +25,11 @@ export interface AppOptions {
   appOrigin: string;
   cookieSecure: boolean;
   logLevel?: string;
+  /** Operatori, chiave dei documenti, attesa di prova. Predefinito: modalità prova con chiave casuale. */
+  activation?: ActivationOptions;
 }
 
-export function buildApp({ db, passkeys, blobs, mailer, custody, appOrigin, cookieSecure, logLevel = 'info' }: AppOptions): FastifyInstance {
+export function buildApp({ db, passkeys, blobs, mailer, custody, appOrigin, cookieSecure, logLevel = 'info', activation }: AppOptions): FastifyInstance {
   // Nei log solo metodo, percorso e stato: mai corpi delle richieste né dati personali.
   const app = Fastify({ logger: { level: logLevel }, bodyLimit: 1024 * 1024 });
 
@@ -68,6 +72,7 @@ export function buildApp({ db, passkeys, blobs, mailer, custody, appOrigin, cook
   app.register(recoveryRoutes, { db, passkeys, mailer, cookieSecure });
   app.register(personRoutes, { db, mailer, custody, appOrigin });
   app.register(checkinRoutes, { db });
+  app.register(activationRoutes, { db, mailer, custody, blobs, appOrigin, ...(activation ?? { operatori: [], chiaveDocumenti: new Uint8Array(randomBytes(32)) }) });
 
   return app;
 }

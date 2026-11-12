@@ -89,7 +89,7 @@ describe('persone, inviti, rilascio e pacchetti', () => {
     expect((await app.inject({ method: 'GET', url: `/v1/inviti/${tAnna}` })).statusCode).toBe(404); // usato
     expect(mailer.sent.some((m) => m.to === rosa.email && m.subject.includes('Anna Verdi ha accettato'))).toBe(true);
     const fiducia = (await app.inject({ method: 'GET', url: '/v1/fiducia', headers: { cookie: anna.session } })).json();
-    expect(fiducia.cassaforti).toEqual([{ ruolo: 'fiduciario', proprietario: 'Rosa Bianchi' }]);
+    expect(fiducia.cassaforti).toMatchObject([{ ruolo: 'fiduciario', proprietario: 'Rosa Bianchi', vaultId: rosa.vaultId, casi: [] }]);
 
     // Il browser di Rosa vede le chiavi pubbliche di chi ha accettato.
     const list = (await app.inject({ method: 'GET', url: '/v1/cassaforte/persone', headers: { cookie: rosa.session } })).json().persone;

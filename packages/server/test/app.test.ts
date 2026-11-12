@@ -77,7 +77,9 @@ describe('configurazione', () => {
   });
 
   it('in produzione impone cookie sicuri', () => {
-    expect(loadConfig({ DATABASE_URL: 'postgres://x', NODE_ENV: 'production' }).COOKIE_SECURE).toBe(true);
+    expect(loadConfig({ DATABASE_URL: 'postgres://x', NODE_ENV: 'production', OPERATOR_EMAILS: 'op@memoriae.ch' }).COOKIE_SECURE).toBe(true);
+    expect(() => loadConfig({ DATABASE_URL: 'postgres://x', NODE_ENV: 'production' })).toThrow(/operatori/);
+    expect(() => loadConfig({ DATABASE_URL: 'postgres://x', NODE_ENV: 'production', OPERATOR_EMAILS: 'op@memoriae.ch', ATTESA_PROVA_SECONDI: '60' })).toThrow(/attesa/);
     expect(() => loadConfig({ DATABASE_URL: 'postgres://x', NODE_ENV: 'production', COOKIE_SECURE: 'false' })).toThrow(/HTTPS/);
   });
 });

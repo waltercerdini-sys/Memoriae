@@ -34,6 +34,15 @@ const ConfigSchema = z.object({
   APP_ORIGIN: z.string().url().optional(),
   /** Sviluppo: file con la chiave principale della custodia delle metà MEMORIAE. */
   CUSTODY_KEY_FILE: z.string().default('./data/custodia.key'),
+  /** E-mail degli operatori MEMORIAE che verificano le richieste, separate da virgola. */
+  OPERATOR_EMAILS: z
+    .string()
+    .default('')
+    .transform((s) => s.split(',').map((o) => o.trim().toLowerCase()).filter(Boolean)),
+  /** Solo prove: attesa dopo la verifica, in secondi, al posto di 14 giorni / 72 ore. */
+  ATTESA_PROVA_SECONDI: z.coerce.number().int().positive().optional(),
+  /** Ogni quanto girano i lavori periodici (promemoria, rilasci), in secondi. */
+  JOBS_INTERVAL_SECONDS: z.coerce.number().int().min(5).default(300),
 });
 
 export type Config = Omit<z.infer<typeof ConfigSchema>, 'COOKIE_SECURE' | 'APP_ORIGIN'> & { COOKIE_SECURE: boolean; APP_ORIGIN: string };
@@ -49,6 +58,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const cookieSecure = c.COOKIE_SECURE ?? c.NODE_ENV === 'production';
   if (c.NODE_ENV === 'production' && !cookieSecure) {
     throw new Error('Configurazione non valida: in produzione i cookie devono essere sicuri (HTTPS)');
+  }
+  if (c.NODE_ENV === 'production' && c.ATTESA_PROVA_SECONDI) {
+    throw new Error('Configurazione non valida: in produzione l\'attesa non si può accorciare');
+  }
+  if (c.NODE_ENV === 'production' && c.OPERATOR_EMAILS.length === 0) {
+    throw new Error('Configurazione non valida: in produzione servono gli operatori (OPERATOR_EMAILS)');
   }
   return { ...c, COOKIE_SECURE: cookieSecure, APP_ORIGIN: c.APP_ORIGIN ?? c.WEBAUTHN_ORIGINS[0] ?? 'http://localhost:5173' };
 }
