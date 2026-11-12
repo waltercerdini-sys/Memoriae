@@ -5,6 +5,7 @@ import { auditLog, checkinSchedules, persons, users, vaults } from '../db/schema
 import { evaluateCheckin, recordReminderSent } from '../domain/checkin';
 import type { Mailer } from '../mail/mailer';
 import { checkinTokenHash } from '../routes/checkin';
+import { trialReminders } from '../payments/subscriptions';
 import { releaseDueCases } from './release';
 
 /**
@@ -21,10 +22,11 @@ export interface JobReport {
   promemoria: number;
   avvisiFiduciari: number;
   rilasci: number;
+  avvisiPiano: number;
 }
 
 export async function runJobs(ctx: JobContext, now = new Date()): Promise<JobReport> {
-  const report: JobReport = { promemoria: 0, avvisiFiduciari: 0, rilasci: 0 };
+  const report: JobReport = { promemoria: 0, avvisiFiduciari: 0, rilasci: 0, avvisiPiano: 0 };
   const { db, mailer, appOrigin } = ctx;
 
   const rows = await db
@@ -75,6 +77,7 @@ export async function runJobs(ctx: JobContext, now = new Date()): Promise<JobRep
   }
 
   report.rilasci = await releaseDueCases(ctx, now);
+  report.avvisiPiano = await trialReminders(db, mailer, appOrigin, now);
   return report;
 }
 
@@ -86,7 +89,7 @@ export function startScheduler(ctx: JobContext, intervalMs: number, log: (msg: s
     running = true;
     try {
       const r = await runJobs(ctx);
-      if (r.promemoria || r.avvisiFiduciari || r.rilasci) log(`Lavori periodici: ${JSON.stringify(r)}`);
+      if (r.promemoria || r.avvisiFiduciari || r.rilasci || r.avvisiPiano) log(`Lavori periodici: ${JSON.stringify(r)}`);
     } catch (e) {
       log(`Errore nei lavori periodici: ${(e as Error).message}`);
     } finally {

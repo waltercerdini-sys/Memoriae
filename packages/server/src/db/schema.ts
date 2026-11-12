@@ -313,3 +313,53 @@ export const custodyKeys = pgTable('custody_keys', {
   sealed: jsonb('sealed').notNull(),
   createdAt: createdAt(),
 }, (t) => [index('custody_keys_vault_idx').on(t.vaultId)]);
+
+// ---------------------------------------------------------------------------
+// Abbonamenti e pagamenti (TWINT e carte tramite il fornitore di pagamento)
+// ---------------------------------------------------------------------------
+
+export const planEnum = pgEnum('plan', ['essenziale', 'famiglia']);
+export const subscriptionStatusEnum = pgEnum('subscription_status', ['prova', 'attivo', 'in-ritardo', 'annullato']);
+
+/**
+ * Un abbonamento per utente. Il fornitore di pagamento (Stripe) è la fonte di verità per
+ * importi, fatture e rinnovi; qui teniamo solo lo stato necessario a MEMORIAE.
+ * Nessun dato di carta o di conto passa da MEMORIAE.
+ */
+export const subscriptions = pgTable('subscriptions', {
+  userId: uuid('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+  plan: planEnum('plan'),
+  status: subscriptionStatusEnum('status').notNull().default('prova'),
+  trialEndsAt: timestamp('trial_ends_at', { withTimezone: true }).notNull(),
+  /** Fine del periodo pagato (rinnovo o scadenza). */
+  paidUntil: timestamp('paid_until', { withTimezone: true }),
+  cancelAtPeriodEnd: boolean('cancel_at_period_end').notNull().default(false),
+  providerCustomerId: text('provider_customer_id'),
+  providerSubscriptionId: text('provider_subscription_id'),
+  /** Piano Famiglia: e-mail del secondo adulto coperto dallo stesso abbonamento. */
+  familyMemberEmail: text('family_member_email'),
+  trialReminderSentAt: timestamp('trial_reminder_sent_at', { withTimezone: true }),
+  trialEndedNoticeAt: timestamp('trial_ended_notice_at', { withTimezone: true }),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, (t) => [
+  uniqueIndex('subscriptions_customer_idx').on(t.providerCustomerId),
+  index('subscriptions_family_idx').on(t.familyMemberEmail),
+]);
+
+/** Eventi del fornitore già elaborati: lo stesso avviso ricevuto due volte non conta due volte. */
+export const paymentEvents = pgTable('payment_events', {
+  id: text('id').primaryKey(),
+  type: text('type').notNull(),
+  receivedAt: timestamp('received_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Pagamenti di prova (solo sviluppo): simulano la pagina TWINT del fornitore. */
+export const trialCheckouts = pgTable('trial_checkouts', {
+  id: id(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  plan: planEnum('plan').notNull(),
+  amountChf: integer('amount_chf').notNull(),
+  paidAt: timestamp('paid_at', { withTimezone: true }),
+  createdAt: createdAt(),
+});

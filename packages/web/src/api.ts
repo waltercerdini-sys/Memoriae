@@ -167,6 +167,27 @@ async function bytes(url: string): Promise<Uint8Array> {
   return new Uint8Array(await res.arrayBuffer());
 }
 
+export type Piano = 'essenziale' | 'famiglia';
+
+export interface StatoPiano {
+  stato: 'prova' | 'attivo' | 'in-ritardo' | 'scaduto';
+  piano: Piano | null;
+  provaFinoAl: string;
+  validoFinoAl: string | null;
+  rinnovoAutomatico: boolean;
+  famiglia: string | null;
+  copertoDa: string | null;
+  puoScrivere: boolean;
+  haPortale: boolean;
+}
+
+export interface OffertaPiano {
+  id: Piano;
+  nome: string;
+  chfAnno: number;
+  descrizione: string;
+}
+
 export const api = {
   io: () => call<{ utente: Utente; haCassaforte: boolean }>('GET', '/v1/io'),
   registrazioneOpzioni: (nome: string, email: string) =>
@@ -254,6 +275,13 @@ export const api = {
   impostaControllo: (intervalloGiorni: number, inPausa: boolean) => call<{ ok: true }>('PUT', '/v1/cassaforte/controllo', { intervalloGiorni, inPausa }),
   sonoQui: () => call<{ ok: true }>('POST', '/v1/cassaforte/sono-qui'),
   sonoQuiDaEmail: (token: string) => call<{ ok: true }>('POST', `/v1/sono-qui/${token}`),
+  piani: () => call<{ piani: OffertaPiano[]; pagamentoDiProva: boolean }>('GET', '/v1/piani'),
+  abbonamento: () => call<StatoPiano>('GET', '/v1/abbonamento'),
+  paga: (piano: Piano) => call<{ url: string }>('POST', '/v1/abbonamento/checkout', { piano }),
+  gestisciPagamento: () => call<{ url: string }>('POST', '/v1/abbonamento/gestisci'),
+  famiglia: (email: string | null) => call<{ ok: true }>('PUT', '/v1/abbonamento/famiglia', { email }),
+  pagamentoProva: (id: string) => call<{ piano: Piano; nome: string; chf: number; pagato: boolean }>('GET', `/v1/pagamenti/prova/${id}`),
+  pagaProva: (id: string) => call<{ ok: true }>('POST', `/v1/pagamenti/prova/${id}/paga`),
   fornitori: () => call<{ fornitori: Fornitore[] }>('GET', '/v1/fornitori'),
 };
 

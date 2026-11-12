@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api, type Caso, type Fornitore, type Persona, type Ruolo, type TipoVoce, type Utente } from './api';
+import { api, type Caso, type Fornitore, type StatoPiano, type Persona, type Ruolo, type TipoVoce, type Utente } from './api';
 import { Controllo } from './Controllo';
 import { Fiducia, statoCaso } from './Fiducia';
 import { Operatore } from './Operatore';
+import { Piano, RigaPiano } from './Piano';
 import { Persone } from './Persone';
 import { sincronizzaRilascio, type StatoRilascio } from './rilascio';
 import { aggiornaVoce, aggiungiVoce, leggiVoci, scaricaFile, type AzioneAccount, type ContenutoVoce, type Voce } from './vault';
@@ -45,7 +46,8 @@ export function Inventario({
   const [mieiCasi, setMieiCasi] = useState<Caso[]>([]);
   const [stato, setStato] = useState<StatoRilascio | null>(null);
   const [scheda, setScheda] = useState<'voci' | 'persone' | 'controllo' | 'altri' | 'operatore'>('voci');
-  const [vista, setVista] = useState<{ tipo: 'elenco' } | { tipo: 'nuova' } | { tipo: 'dettaglio'; id: string }>({ tipo: 'elenco' });
+  const [vista, setVista] = useState<{ tipo: 'elenco' } | { tipo: 'nuova' } | { tipo: 'dettaglio'; id: string } | { tipo: 'piano' }>({ tipo: 'elenco' });
+  const [piano, setPiano] = useState<StatoPiano | null>(null);
   const [errore, setErrore] = useState<string | null>(null);
   const [esito, setEsito] = useState<string | null>(null);
 
@@ -67,6 +69,7 @@ export function Inventario({
     api.fiducia().then((r) => setFiducia(r.cassaforti)).catch(() => setFiducia([]));
     api.operatore().then((r) => setOperatore({ prova: r.prova })).catch(() => setOperatore(null));
     api.mieiCasi().then((r) => setMieiCasi(r.casi)).catch(() => setMieiCasi([]));
+    api.abbonamento().then(setPiano).catch(() => setPiano(null));
   }, [ricarica]);
 
   async function bloccaMio(id: string, chiudi: boolean) {
@@ -97,6 +100,17 @@ export function Inventario({
     } catch (e) {
       setErrore(e instanceof Error ? e.message : 'Operazione non riuscita');
     }
+  }
+
+  if (vista.tipo === 'piano') {
+    return (
+      <Piano
+        onIndietro={() => {
+          setVista({ tipo: 'elenco' });
+          api.abbonamento().then(setPiano).catch(() => undefined);
+        }}
+      />
+    );
   }
 
   if (vista.tipo === 'nuova') {
@@ -191,6 +205,7 @@ export function Inventario({
   return (
     <section className="passo larga">
       <h1>La cassaforte di {utente.nome.split(' ')[0]}</h1>
+      <RigaPiano st={piano} onApri={() => setVista({ tipo: 'piano' })} />
       {invito && (
         <div className="riquadro evidenza">
           <h2>{invito.proprietario} ti ha scelto</h2>

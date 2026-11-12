@@ -43,6 +43,13 @@
       "when": 1794476194803,
       "tag": "0005_controllo_e_attivazione",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794479674812,
+      "tag": "0006_abbonamenti",
+      "breakpoints": true
     }
   ]
 }

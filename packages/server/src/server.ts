@@ -6,6 +6,7 @@ import { createDatabase } from './db/client';
 import { seedProviders } from './db/seed-providers';
 import { startScheduler } from './jobs/scheduler';
 import { FileMailer } from './mail/mailer';
+import { StripeProvider } from './payments/provider';
 import { LocalDiskBlobStore } from './storage/blobs';
 import { DevKeyCustody, loadDevMasterKey } from './storage/custody';
 
@@ -29,6 +30,14 @@ const app = buildApp({
   blobs: new LocalDiskBlobStore(config.BLOB_DIR),
   mailer,
   custody: new DevKeyCustody(db, masterKey),
+  payments:
+    config.PAYMENTS_PROVIDER === 'stripe'
+      ? new StripeProvider({
+          secretKey: config.STRIPE_SECRET_KEY!,
+          webhookSecret: config.STRIPE_WEBHOOK_SECRET!,
+          prices: { essenziale: config.STRIPE_PRICE_ESSENZIALE!, famiglia: config.STRIPE_PRICE_FAMIGLIA! },
+        })
+      : undefined,
   activation: {
     operatori: config.OPERATOR_EMAILS,
     chiaveDocumenti: createHash('sha256').update('memoriae-documenti-operatore:').update(masterKey).digest(),

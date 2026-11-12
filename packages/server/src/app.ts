@@ -8,6 +8,8 @@ import { providers } from './db/schema';
 import type { Mailer } from './mail/mailer';
 import { activationRoutes, type ActivationOptions } from './routes/activation';
 import { authRoutes } from './routes/auth';
+import { billingRoutes, trialCheckoutFactory } from './routes/billing';
+import { TrialProvider, type PaymentProvider } from './payments/provider';
 import { checkinRoutes } from './routes/checkin';
 import { personRoutes } from './routes/persons';
 import { recoveryRoutes } from './routes/recovery';
@@ -27,9 +29,11 @@ export interface AppOptions {
   logLevel?: string;
   /** Operatori, chiave dei documenti, attesa di prova. Predefinito: modalità prova con chiave casuale. */
   activation?: ActivationOptions;
+  /** Fornitore di pagamento. Predefinito: pagamenti di prova (nessun denaro si muove). */
+  payments?: PaymentProvider;
 }
 
-export function buildApp({ db, passkeys, blobs, mailer, custody, appOrigin, cookieSecure, logLevel = 'info', activation }: AppOptions): FastifyInstance {
+export function buildApp({ db, passkeys, blobs, mailer, custody, appOrigin, cookieSecure, logLevel = 'info', activation, payments }: AppOptions): FastifyInstance {
   // Nei log solo metodo, percorso e stato: mai corpi delle richieste né dati personali.
   const app = Fastify({ logger: { level: logLevel }, bodyLimit: 1024 * 1024 });
 
@@ -72,6 +76,7 @@ export function buildApp({ db, passkeys, blobs, mailer, custody, appOrigin, cook
   app.register(recoveryRoutes, { db, passkeys, mailer, cookieSecure });
   app.register(personRoutes, { db, mailer, custody, appOrigin });
   app.register(checkinRoutes, { db });
+  app.register(billingRoutes, { db, mailer, appOrigin, payments: payments ?? new TrialProvider(trialCheckoutFactory(db), appOrigin) });
   app.register(activationRoutes, { db, mailer, custody, blobs, appOrigin, ...(activation ?? { operatori: [], chiaveDocumenti: new Uint8Array(randomBytes(32)) }) });
 
   return app;

@@ -10,6 +10,8 @@ import { DevKeyCustody } from '../src/storage/custody';
 import { MemoryMailer } from '../src/mail/mailer';
 import { createFakePasskeys, createTestDatabase } from './helpers';
 
+const STRIPE = { PAYMENTS_PROVIDER: 'stripe', STRIPE_SECRET_KEY: 'sk_test_x', STRIPE_WEBHOOK_SECRET: 'whsec_x', STRIPE_PRICE_ESSENZIALE: 'price_a', STRIPE_PRICE_FAMIGLIA: 'price_b' };
+
 const appFor = (db: Database) =>
   buildApp({ db, custody: new DevKeyCustody(db, new Uint8Array(32).fill(7)), appOrigin: 'http://localhost:5173', passkeys: createFakePasskeys(), blobs: new MemoryBlobStore(), mailer: new MemoryMailer(), cookieSecure: false, logLevel: 'silent' });
 
@@ -77,9 +79,11 @@ describe('configurazione', () => {
   });
 
   it('in produzione impone cookie sicuri', () => {
-    expect(loadConfig({ DATABASE_URL: 'postgres://x', NODE_ENV: 'production', OPERATOR_EMAILS: 'op@memoriae.ch' }).COOKIE_SECURE).toBe(true);
-    expect(() => loadConfig({ DATABASE_URL: 'postgres://x', NODE_ENV: 'production' })).toThrow(/operatori/);
-    expect(() => loadConfig({ DATABASE_URL: 'postgres://x', NODE_ENV: 'production', OPERATOR_EMAILS: 'op@memoriae.ch', ATTESA_PROVA_SECONDI: '60' })).toThrow(/attesa/);
+    expect(loadConfig({ DATABASE_URL: 'postgres://x', NODE_ENV: 'production', OPERATOR_EMAILS: 'op@memoriae.ch', ...STRIPE }).COOKIE_SECURE).toBe(true);
+    expect(() => loadConfig({ DATABASE_URL: 'postgres://x', NODE_ENV: 'production', ...STRIPE })).toThrow(/operatori/);
+    expect(() => loadConfig({ DATABASE_URL: 'postgres://x', NODE_ENV: 'production', OPERATOR_EMAILS: 'op@memoriae.ch' })).toThrow(/pagamenti di prova/);
+    expect(() => loadConfig({ DATABASE_URL: 'postgres://x', PAYMENTS_PROVIDER: 'stripe' })).toThrow(/STRIPE_SECRET_KEY/);
+    expect(() => loadConfig({ DATABASE_URL: 'postgres://x', NODE_ENV: 'production', OPERATOR_EMAILS: 'op@memoriae.ch', ATTESA_PROVA_SECONDI: '60', ...STRIPE })).toThrow(/attesa/);
     expect(() => loadConfig({ DATABASE_URL: 'postgres://x', NODE_ENV: 'production', COOKIE_SECURE: 'false' })).toThrow(/HTTPS/);
   });
 });

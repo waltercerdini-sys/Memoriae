@@ -4,6 +4,7 @@ import { z } from 'zod';
 import type { Database } from '../db/client';
 import { auditLog, checkinSchedules, items, passkeyCredentials, users, vaultKeyWraps, vaults } from '../db/schema';
 import { blobKey, type BlobStore } from '../storage/blobs';
+import { requireWritablePlan } from '../payments/subscriptions';
 import { requireUser } from './auth';
 import { verifierHash } from './recovery';
 
@@ -66,6 +67,8 @@ export interface VaultRouteOptions {
 export async function vaultRoutes(app: FastifyInstance, opts: VaultRouteOptions) {
   const { db, blobs } = opts;
   const auth = requireUser(db);
+  // Dopo la prova senza piano: si legge e si cancella, non si aggiunge né si modifica.
+  const piano = requireWritablePlan(db);
 
   app.addContentTypeParser('application/octet-stream', { parseAs: 'buffer', bodyLimit: MAX_ENCRYPTED_FILE_BYTES }, (_req, body, done) =>
     done(null, body),
@@ -199,7 +202,7 @@ export async function vaultRoutes(app: FastifyInstance, opts: VaultRouteOptions)
     };
   });
 
-  app.post('/v1/cassaforte/voci', { preHandler: auth }, async (req, reply) => {
+  app.post('/v1/cassaforte/voci', { preHandler: [auth, piano] }, async (req, reply) => {
     const body = CreateItem.safeParse(req.body);
     if (!body.success) return reply.code(400).send({ errore: 'Voce non valida' });
     const v = await ownVault(req.user!.id);
@@ -223,7 +226,7 @@ export async function vaultRoutes(app: FastifyInstance, opts: VaultRouteOptions)
     return it ? { vault: v, item: it } : null;
   }
 
-  app.patch('/v1/cassaforte/voci/:id', { preHandler: auth }, async (req, reply) => {
+  app.patch('/v1/cassaforte/voci/:id', { preHandler: [auth, piano] }, async (req, reply) => {
     const p = IdParam.safeParse(req.params);
     const body = UpdateItem.safeParse(req.body);
     if (!p.success || !body.success) return reply.code(400).send({ errore: 'Richiesta non valida' });
@@ -254,7 +257,7 @@ export async function vaultRoutes(app: FastifyInstance, opts: VaultRouteOptions)
 
   // ---- File cifrati ---------------------------------------------------------
 
-  app.put('/v1/cassaforte/voci/:id/file', { preHandler: auth }, async (req, reply) => {
+  app.put('/v1/cassaforte/voci/:id/file', { preHandler: [auth, piano] }, async (req, reply) => {
     const p = IdParam.safeParse(req.params);
     if (!p.success) return reply.code(400).send({ errore: 'Richiesta non valida' });
     if (!Buffer.isBuffer(req.body)) return reply.code(415).send({ errore: 'Atteso un file cifrato (application/octet-stream)' });

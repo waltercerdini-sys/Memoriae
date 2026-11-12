@@ -6,6 +6,7 @@ import type { Database } from '../db/client';
 import { auditLog, persons, recipientPackages, users, vaults } from '../db/schema';
 import type { Mailer } from '../mail/mailer';
 import type { KeyCustody } from '../storage/custody';
+import { requireWritablePlan } from '../payments/subscriptions';
 import { requireUser } from './auth';
 
 /**
@@ -65,6 +66,8 @@ export interface PersonRouteOptions {
 export async function personRoutes(app: FastifyInstance, opts: PersonRouteOptions) {
   const { db, mailer, custody, appOrigin } = opts;
   const auth = requireUser(db);
+  // Dopo la prova senza piano: si legge e si cancella, non si aggiunge né si modifica.
+  const piano = requireWritablePlan(db);
 
   async function ownVault(userId: string) {
     const [v] = await db.select().from(vaults).where(eq(vaults.ownerId, userId)).limit(1);
@@ -96,7 +99,7 @@ export async function personRoutes(app: FastifyInstance, opts: PersonRouteOption
     };
   });
 
-  app.post('/v1/cassaforte/persone', { preHandler: auth }, async (req, reply) => {
+  app.post('/v1/cassaforte/persone', { preHandler: [auth, piano] }, async (req, reply) => {
     const body = CreatePerson.safeParse(req.body);
     if (!body.success) return reply.code(400).send({ errore: 'Dati della persona non validi' });
     const v = await ownVault(req.user!.id);
@@ -119,7 +122,7 @@ export async function personRoutes(app: FastifyInstance, opts: PersonRouteOption
 
   // ---- Inviti -----------------------------------------------------------------
 
-  app.post('/v1/cassaforte/persone/:id/invito', { preHandler: auth }, async (req, reply) => {
+  app.post('/v1/cassaforte/persone/:id/invito', { preHandler: [auth, piano] }, async (req, reply) => {
     const p = IdParam.safeParse(req.params);
     if (!p.success) return reply.code(400).send({ errore: 'Richiesta non valida' });
     const found = await ownPerson(req.user!.id, p.data.id);

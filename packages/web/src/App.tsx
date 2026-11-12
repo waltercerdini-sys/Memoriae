@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, ApiError, type Utente } from './api';
 import { Inventario, type InvitoInSospeso } from './Inventario';
+import { PagamentoProva } from './Piano';
 import { Recupero } from './Recupero';
 import { apriConPasskey, apriConPassword, creaCassaforte, metodoPer, type SegretoAccesso } from './vault';
 import { createPasskey, passkeysSupported, prfOnly, usePasskey } from './webauthn';
@@ -62,6 +63,19 @@ export function App() {
       await api.bloccaDaEmail(blocco.token);
       setBlocco({ ...blocco, fatto: true });
     });
+
+  // Ritorno dalla pagina di pagamento (o dalla pagina di prova).
+  const [pagamento] = useState(() => new URLSearchParams(window.location.search).get('pagamento'));
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const pagato = q.get('pagato');
+    const portale = q.get('portale');
+    if (pagato === null && portale === null) return;
+    window.history.replaceState(null, '', window.location.pathname);
+    if (pagato === '1') setGrazie('Grazie! Il pagamento è andato a buon fine: il tuo piano è attivo. Riapri la cassaforte con la passkey.');
+    else if (pagato === '0') setGrazie('Pagamento annullato: non ti è stato addebitato nulla.');
+    else setGrazie('In questa versione di prova non c\'è una pagina del servizio di pagamento da gestire.');
+  }, []);
 
   const chiudiInvito = () => {
     setInvito(null);
@@ -174,7 +188,8 @@ export function App() {
             )}
           </div>
         )}
-        {s.nome === 'caricamento' && <p className="tenue">Un momento…</p>}
+        {pagamento && <PagamentoProva id={pagamento} />}
+        {!pagamento && s.nome === 'caricamento' && <p className="tenue">Un momento…</p>}
         {invito && s.nome !== 'inventario' && (
           <div className="riquadro evidenza">
             <h2>{invito.proprietario} ti ha scelto</h2>
@@ -195,7 +210,7 @@ export function App() {
           />
         )}
         {s.nome === 'codice' && <CodiceRecupero codice={s.codice} onFatto={() => setS({ nome: 'inventario', vaultId: s.vaultId, vaultKey: s.vaultKey })} />}
-        {s.nome === 'accesso' && (
+        {!pagamento && s.nome === 'accesso' && (
           <section className="passo">
             <h1>Apri la tua cassaforte</h1>
             {s.messaggio && <p className="tenue">{s.messaggio}</p>}

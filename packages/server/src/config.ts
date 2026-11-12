@@ -43,6 +43,12 @@ const ConfigSchema = z.object({
   ATTESA_PROVA_SECONDI: z.coerce.number().int().positive().optional(),
   /** Ogni quanto girano i lavori periodici (promemoria, rilasci), in secondi. */
   JOBS_INTERVAL_SECONDS: z.coerce.number().int().min(5).default(300),
+  /** Pagamenti: «prova» (sviluppo, nessun denaro) oppure «stripe» (TWINT e carte). */
+  PAYMENTS_PROVIDER: z.enum(['prova', 'stripe']).default('prova'),
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  STRIPE_PRICE_ESSENZIALE: z.string().optional(),
+  STRIPE_PRICE_FAMIGLIA: z.string().optional(),
 });
 
 export type Config = Omit<z.infer<typeof ConfigSchema>, 'COOKIE_SECURE' | 'APP_ORIGIN'> & { COOKIE_SECURE: boolean; APP_ORIGIN: string };
@@ -64,6 +70,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   }
   if (c.NODE_ENV === 'production' && c.OPERATOR_EMAILS.length === 0) {
     throw new Error('Configurazione non valida: in produzione servono gli operatori (OPERATOR_EMAILS)');
+  }
+  if (c.NODE_ENV === 'production' && c.PAYMENTS_PROVIDER !== 'stripe') {
+    throw new Error('Configurazione non valida: in produzione i pagamenti di prova non sono ammessi');
+  }
+  if (c.PAYMENTS_PROVIDER === 'stripe' && !(c.STRIPE_SECRET_KEY && c.STRIPE_WEBHOOK_SECRET && c.STRIPE_PRICE_ESSENZIALE && c.STRIPE_PRICE_FAMIGLIA)) {
+    throw new Error('Configurazione non valida: per Stripe servono STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET e i due prezzi');
   }
   return { ...c, COOKIE_SECURE: cookieSecure, APP_ORIGIN: c.APP_ORIGIN ?? c.WEBAUTHN_ORIGINS[0] ?? 'http://localhost:5173' };
 }

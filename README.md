@@ -59,6 +59,7 @@ node e2e/recupero.mjs                      # passkey persa: recupero su un nuovo
 node e2e/persone.mjs                       # persone di fiducia, invito via e-mail, volontà e pacchetti
 # con ATTESA_PROVA_SECONDI=5 JOBS_INTERVAL_SECONDS=5 npm run prova:
 MAIL_OUTBOX=data/posta.log node e2e/attivazione.mjs   # richiesta, blocco, verifica, attesa, apertura, consegna
+node e2e/piano.mjs                                    # prova gratuita, scelta del piano, pagamento simulato
 ```
 
 In sviluppo le e-mail (per esempio il codice di recupero) non vengono spedite: compaiono nel terminale
@@ -98,6 +99,19 @@ Hosting previsto: Infomaniak Public Cloud (Svizzera).
 - **Apertura**: la metà MEMORIAE esce solo verso una persona di fiducia; l'unione con la sua metà avviene nel suo
   browser, che apre i pacchetti, consegna quelli cifrati per i destinatari e mostra quelli da consegnare a mano.
 - **Emergenza**: solo le voci d'emergenza, per 30 giorni; il proprietario può chiudere l'accesso prima.
+
+## Piani e pagamenti
+
+- **Prova gratuita** di 30 giorni con tutte le funzioni, senza dati di pagamento.
+- **Essenziale** CHF 59/anno, **Famiglia** CHF 99/anno (due adulti, ognuno con la sua cassaforte). Prezzi da validare.
+- Pagamento con **TWINT o carta** sulla pagina sicura di Stripe; rinnovo annuale automatico, disdetta e ricevute
+  dalla pagina del fornitore. MEMORIAE non vede né conserva dati di carte o conti.
+- Senza piano dopo la prova la cassaforte diventa di sola lettura: si legge, si cancella, si riceve, si fa da
+  persona di fiducia, e ciò che è pronto per gli eredi resta valido. **Il pagamento non blocca mai un'apertura.**
+- In prova (`npm run prova`) il pagamento è simulato da una pagina dell'app.
+- Per Stripe: creare i due prezzi annuali in CHF, attivare TWINT nei metodi di pagamento, impostare l'avviso
+  (webhook) su `/v1/pagamenti/avvisi` con gli eventi `checkout.session.completed`, `customer.subscription.*`,
+  `invoice.payment_failed`, e attivare il portale clienti.
 
 ## Regole del server
 
