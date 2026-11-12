@@ -6,7 +6,9 @@ import type { Database } from './db/client';
 import { providers } from './db/schema';
 import type { Mailer } from './mail/mailer';
 import { authRoutes } from './routes/auth';
+import { personRoutes } from './routes/persons';
 import { recoveryRoutes } from './routes/recovery';
+import type { KeyCustody } from './storage/custody';
 import { vaultRoutes } from './routes/vault';
 import type { BlobStore } from './storage/blobs';
 
@@ -15,11 +17,14 @@ export interface AppOptions {
   passkeys: PasskeyService;
   blobs: BlobStore;
   mailer: Mailer;
+  custody: KeyCustody;
+  /** Indirizzo dell'app, per i collegamenti nelle e-mail. */
+  appOrigin: string;
   cookieSecure: boolean;
   logLevel?: string;
 }
 
-export function buildApp({ db, passkeys, blobs, mailer, cookieSecure, logLevel = 'info' }: AppOptions): FastifyInstance {
+export function buildApp({ db, passkeys, blobs, mailer, custody, appOrigin, cookieSecure, logLevel = 'info' }: AppOptions): FastifyInstance {
   // Nei log solo metodo, percorso e stato: mai corpi delle richieste né dati personali.
   const app = Fastify({ logger: { level: logLevel }, bodyLimit: 1024 * 1024 });
 
@@ -60,6 +65,7 @@ export function buildApp({ db, passkeys, blobs, mailer, cookieSecure, logLevel =
   app.register(authRoutes, { db, passkeys, cookieSecure });
   app.register(vaultRoutes, { db, blobs });
   app.register(recoveryRoutes, { db, passkeys, mailer, cookieSecure });
+  app.register(personRoutes, { db, mailer, custody, appOrigin });
 
   return app;
 }

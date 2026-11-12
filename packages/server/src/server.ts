@@ -4,6 +4,7 @@ import { loadConfig, loadEnvFile } from './config';
 import { createDatabase } from './db/client';
 import { FileMailer } from './mail/mailer';
 import { LocalDiskBlobStore } from './storage/blobs';
+import { DevKeyCustody, loadDevMasterKey } from './storage/custody';
 
 loadEnvFile();
 const config = loadConfig();
@@ -17,6 +18,8 @@ const app = buildApp({
   passkeys: createPasskeyService({ rpId: config.WEBAUTHN_RP_ID, rpName: 'MEMORIAE', origins: config.WEBAUTHN_ORIGINS }),
   blobs: new LocalDiskBlobStore(config.BLOB_DIR),
   mailer: new FileMailer(config.MAIL_OUTBOX),
+  custody: new DevKeyCustody(db, await loadDevMasterKey(config.CUSTODY_KEY_FILE)),
+  appOrigin: config.APP_ORIGIN,
   cookieSecure: config.COOKIE_SECURE,
   logLevel: config.LOG_LEVEL,
 });

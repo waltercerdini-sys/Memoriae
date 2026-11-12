@@ -30,9 +30,13 @@ const ConfigSchema = z.object({
   BLOB_DIR: z.string().default('./data/file'),
   /** Sviluppo: le e-mail finiscono in questo file e nel terminale. In produzione: SMTP (da aggiungere). */
   MAIL_OUTBOX: z.string().default('./data/posta.log'),
+  /** Indirizzo pubblico dell'app (collegamenti nelle e-mail). Predefinito: il primo di WEBAUTHN_ORIGINS. */
+  APP_ORIGIN: z.string().url().optional(),
+  /** Sviluppo: file con la chiave principale della custodia delle metà MEMORIAE. */
+  CUSTODY_KEY_FILE: z.string().default('./data/custodia.key'),
 });
 
-export type Config = Omit<z.infer<typeof ConfigSchema>, 'COOKIE_SECURE'> & { COOKIE_SECURE: boolean };
+export type Config = Omit<z.infer<typeof ConfigSchema>, 'COOKIE_SECURE' | 'APP_ORIGIN'> & { COOKIE_SECURE: boolean; APP_ORIGIN: string };
 
 /** Legge la configurazione dalle variabili d'ambiente e si ferma subito se qualcosa manca. */
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -46,5 +50,5 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   if (c.NODE_ENV === 'production' && !cookieSecure) {
     throw new Error('Configurazione non valida: in produzione i cookie devono essere sicuri (HTTPS)');
   }
-  return { ...c, COOKIE_SECURE: cookieSecure };
+  return { ...c, COOKIE_SECURE: cookieSecure, APP_ORIGIN: c.APP_ORIGIN ?? c.WEBAUTHN_ORIGINS[0] ?? 'http://localhost:5173' };
 }

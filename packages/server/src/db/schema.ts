@@ -169,6 +169,9 @@ export const persons = pgTable('persons', {
   sealedFiduciaryHalf: text('sealed_fiduciary_half'),
   /** Quota di recupero sociale, cifrata per questa persona. */
   sealedRecoveryShare: text('sealed_recovery_share'),
+  /** Invito in corso: solo l'hash del token inviato per e-mail. */
+  inviteTokenHash: text('invite_token_hash'),
+  inviteExpiresAt: timestamp('invite_expires_at', { withTimezone: true }),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 }, (t) => [index('persons_vault_idx').on(t.vaultId)]);
@@ -286,3 +289,16 @@ export const auditLog = pgTable('audit_log', {
   vaultId: uuid('vault_id'),
   details: jsonb('details').notNull().default(sql`'{}'::jsonb`),
 }, (t) => [index('audit_log_vault_idx').on(t.vaultId)]);
+
+/**
+ * Custodia delle metà MEMORIAE (solo per sviluppo e prove).
+ * In produzione queste metà vanno in un servizio di gestione chiavi separato (KMS o modulo hardware),
+ * non nel database dell'applicazione. Qui sono cifrate con una chiave principale fuori dal database.
+ */
+export const custodyKeys = pgTable('custody_keys', {
+  ref: uuid('ref').primaryKey().default(sql`gen_random_uuid()`),
+  vaultId: uuid('vault_id').notNull().references(() => vaults.id, { onDelete: 'cascade' }),
+  purpose: text('purpose').notNull(), // decesso | emergenza | recupero-sociale
+  sealed: jsonb('sealed').notNull(),
+  createdAt: createdAt(),
+}, (t) => [index('custody_keys_vault_idx').on(t.vaultId)]);

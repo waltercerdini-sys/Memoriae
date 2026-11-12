@@ -26,6 +26,7 @@ import { buildApp } from '../src/app';
 import type { Database } from '../src/db/client';
 import { auditLog } from '../src/db/schema';
 import { MemoryBlobStore } from '../src/storage/blobs';
+import { DevKeyCustody } from '../src/storage/custody';
 import { MemoryMailer } from '../src/mail/mailer';
 import { createFakePasskeys, createTestDatabase } from './helpers';
 
@@ -35,7 +36,7 @@ let app: FastifyInstance;
 
 beforeAll(async () => {
   ({ db, close } = await createTestDatabase());
-  app = buildApp({ db, passkeys: createFakePasskeys(), blobs: new MemoryBlobStore(), mailer: new MemoryMailer(), cookieSecure: false, logLevel: 'silent' });
+  app = buildApp({ db, custody: new DevKeyCustody(db, new Uint8Array(32).fill(7)), appOrigin: 'http://localhost:5173', passkeys: createFakePasskeys(), blobs: new MemoryBlobStore(), mailer: new MemoryMailer(), cookieSecure: false, logLevel: 'silent' });
   await app.ready();
 });
 
