@@ -119,7 +119,7 @@ export function App() {
           <section className="passo">
             <h1>Apri la tua cassaforte</h1>
             {s.messaggio && <p className="tenue">{s.messaggio}</p>}
-            <p>Usa Face ID, l'impronta o il PIN del tuo dispositivo.</p>
+            <p>Usa Face ID, l'impronta, oppure il PIN o la password con cui sblocchi il dispositivo.</p>
             <button className="primario" onClick={accedi} disabled={occupato}>
               {occupato ? 'Attendi…' : 'Accedi con la passkey'}
             </button>
@@ -187,7 +187,7 @@ function Registrazione(p: { occupato: boolean; onInvia: (nome: string, email: st
         <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
       </label>
       <p className="tenue">
-        Al passo successivo il dispositivo ti chiederà Face ID, l'impronta o il PIN: è la tua passkey, la chiave per entrare. Non serve
+        Al passo successivo il dispositivo ti chiederà Face ID, l'impronta, oppure il PIN o la password con cui lo sblocchi: è la tua passkey, la chiave per entrare. Non serve
         ricordare una password.
       </p>
       <button className="primario" type="submit" disabled={p.occupato}>
