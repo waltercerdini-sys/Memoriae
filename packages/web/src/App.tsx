@@ -33,6 +33,18 @@ export function App() {
       .catch(() => setErrore('Questo invito non è più valido: chiedi a chi te l\'ha mandato di inviarlo di nuovo.'));
   }, []);
 
+  // Collegamento del promemoria «sono qui»: un clic, senza accedere.
+  const [grazie, setGrazie] = useState<string | null>(null);
+  useEffect(() => {
+    const token = new URLSearchParams(window.location.search).get('sonoqui');
+    if (!token) return;
+    window.history.replaceState(null, '', window.location.pathname);
+    api
+      .sonoQuiDaEmail(token)
+      .then(() => setGrazie('Grazie! Abbiamo registrato che stai bene. Non serve fare altro.'))
+      .catch(() => setGrazie('Questo collegamento è già stato usato o è scaduto. Se vuoi confermare che stai bene, entra nell\'app.'));
+  }, []);
+
   const chiudiInvito = () => {
     setInvito(null);
     window.history.replaceState(null, '', window.location.pathname);
@@ -119,6 +131,11 @@ export function App() {
         {errore && (
           <p className="avviso" role="alert">
             {errore}
+          </p>
+        )}
+        {grazie && (
+          <p className="esito" role="status">
+            {grazie}
           </p>
         )}
         {s.nome === 'caricamento' && <p className="tenue">Un momento…</p>}

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, type Fornitore, type Persona, type Ruolo, type TipoVoce, type Utente } from './api';
+import { Controllo } from './Controllo';
 import { Persone } from './Persone';
 import { sincronizzaRilascio, type StatoRilascio } from './rilascio';
 import { aggiornaVoce, aggiungiVoce, leggiVoci, scaricaFile, type AzioneAccount, type ContenutoVoce, type Voce } from './vault';
@@ -39,7 +40,7 @@ export function Inventario({
   const [fornitori, setFornitori] = useState<Fornitore[]>([]);
   const [fiducia, setFiducia] = useState<{ ruolo: Ruolo; proprietario: string }[]>([]);
   const [stato, setStato] = useState<StatoRilascio | null>(null);
-  const [scheda, setScheda] = useState<'voci' | 'persone'>('voci');
+  const [scheda, setScheda] = useState<'voci' | 'persone' | 'controllo'>('voci');
   const [vista, setVista] = useState<{ tipo: 'elenco' } | { tipo: 'nuova' } | { tipo: 'dettaglio'; id: string }>({ tipo: 'elenco' });
   const [errore, setErrore] = useState<string | null>(null);
   const [esito, setEsito] = useState<string | null>(null);
@@ -201,8 +202,13 @@ export function Inventario({
         <button role="tab" aria-selected={scheda === 'persone'} className={scheda === 'persone' ? 'attiva' : ''} onClick={() => setScheda('persone')}>
           Persone
         </button>
+        <button role="tab" aria-selected={scheda === 'controllo'} className={scheda === 'controllo' ? 'attiva' : ''} onClick={() => setScheda('controllo')}>
+          Sono qui
+        </button>
       </div>
-      {scheda === 'persone' ? (
+      {scheda === 'controllo' ? (
+        <Controllo />
+      ) : scheda === 'persone' ? (
         <Persone persone={persone} stato={stato} onCambio={ricarica} />
       ) : (
         <>

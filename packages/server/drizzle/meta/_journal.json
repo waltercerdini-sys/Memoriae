@@ -36,6 +36,13 @@
       "when": 1794473386327,
       "tag": "0004_persone_e_custodia",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794476194803,
+      "tag": "0005_controllo_e_attivazione",
+      "breakpoints": true
     }
   ]
 }

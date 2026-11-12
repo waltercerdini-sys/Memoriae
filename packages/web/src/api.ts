@@ -83,6 +83,15 @@ export interface PacchettoRemoto {
   esterno: Envelope;
 }
 
+export interface StatoControllo {
+  intervalloGiorni: number;
+  ultimoSonoQui: string;
+  prossimaScadenza: string;
+  inPausa: boolean;
+  promemoriaInviati: number;
+  stato: string;
+}
+
 export const api = {
   io: () => call<{ utente: Utente; haCassaforte: boolean }>('GET', '/v1/io'),
   registrazioneOpzioni: (nome: string, email: string) =>
@@ -137,6 +146,10 @@ export const api = {
     if (!res.ok) throw new ApiError(res.status, 'File non disponibile');
     return new Uint8Array(await res.arrayBuffer());
   },
+  controllo: () => call<StatoControllo>('GET', '/v1/cassaforte/controllo'),
+  impostaControllo: (intervalloGiorni: number, inPausa: boolean) => call<{ ok: true }>('PUT', '/v1/cassaforte/controllo', { intervalloGiorni, inPausa }),
+  sonoQui: () => call<{ ok: true }>('POST', '/v1/cassaforte/sono-qui'),
+  sonoQuiDaEmail: (token: string) => call<{ ok: true }>('POST', `/v1/sono-qui/${token}`),
   fornitori: () => call<{ fornitori: Fornitore[] }>('GET', '/v1/fornitori'),
 };
 

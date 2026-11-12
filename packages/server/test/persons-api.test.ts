@@ -33,6 +33,7 @@ import { MemoryMailer } from '../src/mail/mailer';
 import { MemoryBlobStore } from '../src/storage/blobs';
 import { DevKeyCustody } from '../src/storage/custody';
 import { createFakePasskeys, createTestDatabase } from './helpers';
+import { createWorld } from './world';
 
 let db: Database;
 let close: () => Promise<void>;
@@ -52,51 +53,7 @@ afterAll(async () => {
   await close();
 });
 
-interface TestUser {
-  session: string;
-  vaultId: string;
-  vaultKey: Uint8Array;
-  keyPair: PersonKeyPair;
-  email: string;
-}
-
-async function utente(nome: string, email: string): Promise<TestUser> {
-  const start = (await app.inject({ method: 'POST', url: '/v1/registrazione/opzioni', payload: { nome, email } })).json();
-  const credentialId = `cred-${randomUUID()}`;
-  const reg = await app.inject({
-    method: 'POST',
-    url: '/v1/registrazione/verifica',
-    payload: { challengeId: start.challengeId, risposta: { id: credentialId, challenge: start.opzioni.challenge } },
-  });
-  const c = reg.cookies.find((x) => x.name === 'memoriae_sessione')!;
-  const session = `memoriae_sessione=${c.value}`;
-  const vaultId = randomUUID();
-  const vaultKey = await createVaultKey();
-  const recovery = await generateRecoveryCode();
-  const keyPair = await generatePersonKeyPair();
-  const res = await app.inject({
-    method: 'POST',
-    url: '/v1/cassaforte',
-    headers: { cookie: session },
-    payload: {
-      id: vaultId,
-      chiavePubblica: await encodePublicKey(keyPair.publicKey),
-      chiavePrivataCifrata: await wrapPrivateKey(keyPair.privateKey, vaultKey, 'owner'),
-      accessi: [
-        { metodo: 'passkey', credentialId, chiaveCifrata: await wrapVaultKey(vaultKey, await deriveKeyFromPasskeySecret(await generateKey()), vaultId, 'passkey') },
-        { metodo: 'recovery-code', chiaveCifrata: await wrapVaultKey(vaultKey, recovery.key, vaultId, 'recovery-code') },
-      ],
-      verificaRecupero: await recoveryVerifier(recovery.key),
-    },
-  });
-  expect(res.statusCode).toBe(201);
-  return { session, vaultId, vaultKey, keyPair, email };
-}
-
-const inviteToken = (to: string) => {
-  const m = [...mailer.sent].reverse().find((x) => x.to === to && x.text.includes('?invito='));
-  return m?.text.match(/\?invito=([A-Za-z0-9_-]{43})/)?.[1];
-};
+const { utente, inviteToken } = createWorld(() => app, mailer);
 
 describe('persone, inviti, rilascio e pacchetti', () => {
   it('percorso completo, fino alla prova che il rilascio funzionerebbe davvero', async () => {

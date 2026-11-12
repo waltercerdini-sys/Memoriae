@@ -3,6 +3,7 @@ import { createPasskeyService } from './auth/passkeys';
 import { loadConfig, loadEnvFile } from './config';
 import { createDatabase } from './db/client';
 import { seedProviders } from './db/seed-providers';
+import { startScheduler } from './jobs/scheduler';
 import { FileMailer } from './mail/mailer';
 import { LocalDiskBlobStore } from './storage/blobs';
 import { DevKeyCustody, loadDevMasterKey } from './storage/custody';
@@ -19,18 +20,23 @@ if (config.DATABASE_URL.startsWith('pglite:')) {
   await migrate();
   await seedProviders(db);
 }
+const mailer = new FileMailer(config.MAIL_OUTBOX);
 const app = buildApp({
   db,
   passkeys: createPasskeyService({ rpId: config.WEBAUTHN_RP_ID, rpName: 'MEMORIAE', origins: config.WEBAUTHN_ORIGINS }),
   blobs: new LocalDiskBlobStore(config.BLOB_DIR),
-  mailer: new FileMailer(config.MAIL_OUTBOX),
+  mailer,
   custody: new DevKeyCustody(db, await loadDevMasterKey(config.CUSTODY_KEY_FILE)),
   appOrigin: config.APP_ORIGIN,
   cookieSecure: config.COOKIE_SECURE,
   logLevel: config.LOG_LEVEL,
 });
 
+// Lavori periodici (promemoria, avvisi, rilasci a fine attesa): ogni 5 minuti.
+const stopJobs = startScheduler({ db, mailer, appOrigin: config.APP_ORIGIN }, 5 * 60 * 1000, (m) => app.log.info(m));
+
 const shutdown = async () => {
+  stopJobs();
   await app.close();
   await close();
   process.exit(0);

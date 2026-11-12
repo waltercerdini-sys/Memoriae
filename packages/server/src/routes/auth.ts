@@ -1,5 +1,6 @@
 import type { AuthenticationResponseJSON, RegistrationResponseJSON } from '@simplewebauthn/server';
 import { and, eq, gt } from 'drizzle-orm';
+import { registraSonoQui } from './checkin';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { PasskeyService } from '../auth/passkeys';
@@ -138,6 +139,8 @@ export async function authRoutes(app: FastifyInstance, opts: AuthRouteOptions) {
     setSessionCookie(reply, token);
     const [u] = await db.select({ id: users.id, nome: users.name, email: users.email }).from(users).where(eq(users.id, cred.userId));
     const v = await db.select({ id: vaults.id }).from(vaults).where(eq(vaults.ownerId, cred.userId)).limit(1);
+    // Entrare con la propria passkey vale come «sono qui».
+    if (v[0]) await registraSonoQui(db, v[0].id, cred.userId, 'accesso');
     return { utente: u, credentialId: cred.id, haCassaforte: v.length > 0 };
   });
 

@@ -6,6 +6,7 @@ import type { Database } from './db/client';
 import { providers } from './db/schema';
 import type { Mailer } from './mail/mailer';
 import { authRoutes } from './routes/auth';
+import { checkinRoutes } from './routes/checkin';
 import { personRoutes } from './routes/persons';
 import { recoveryRoutes } from './routes/recovery';
 import type { KeyCustody } from './storage/custody';
@@ -66,6 +67,7 @@ export function buildApp({ db, passkeys, blobs, mailer, custody, appOrigin, cook
   app.register(vaultRoutes, { db, blobs });
   app.register(recoveryRoutes, { db, passkeys, mailer, cookieSecure });
   app.register(personRoutes, { db, mailer, custody, appOrigin });
+  app.register(checkinRoutes, { db });
 
   return app;
 }

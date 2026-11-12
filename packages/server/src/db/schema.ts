@@ -188,6 +188,9 @@ export const recipientPackages = pgTable('recipient_packages', {
   outer: jsonb('outer').notNull(),
   /** Quando il pacchetto è stato consegnato al destinatario dopo un rilascio. */
   deliveredAt: timestamp('delivered_at', { withTimezone: true }),
+  /** Strato interno consegnato (cifrato per il destinatario) e il caso che l'ha sbloccato. */
+  deliveredInner: text('delivered_inner'),
+  activationCaseId: uuid('activation_case_id'),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 }, (t) => [uniqueIndex('recipient_packages_unique').on(t.vaultId, t.recipientId, t.scope)]);
@@ -206,6 +209,10 @@ export const checkinSchedules = pgTable('checkin_schedules', {
   remindersSent: integer('reminders_sent').notNull().default(0),
   lastReminderAt: timestamp('last_reminder_at', { withTimezone: true }),
   paused: boolean('paused').notNull().default(false),
+  /** Token del collegamento «sono qui» nelle e-mail (solo hash), valido fino al prossimo controllo. */
+  checkinTokenHash: text('checkin_token_hash'),
+  /** Quando i fiduciari sono stati avvisati del controllo mancato (una volta per periodo). */
+  missedNotifiedAt: timestamp('missed_notified_at', { withTimezone: true }),
 });
 
 export const activationStatusEnum = pgEnum('activation_status', [
@@ -223,6 +230,10 @@ export const activationCases = pgTable('activation_cases', {
   scope: releaseScopeEnum('scope').notNull(),
   status: activationStatusEnum('status').notNull().default('richiesta'),
   requestedBy: uuid('requested_by').notNull().references(() => persons.id, { onDelete: 'restrict' }),
+  /** Spiegazione del fiduciario (testo libero, lo legge l'operatore). */
+  reason: text('reason'),
+  /** Collegamento «blocca» inviato al proprietario (solo hash). */
+  blockTokenHash: text('block_token_hash'),
   /** Documenti (certificato di morte, attestazione medica) cifrati per l'operatore. */
   documents: jsonb('documents').notNull().default(sql`'[]'::jsonb`),
   reviewedBy: text('reviewed_by'),
