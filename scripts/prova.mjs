@@ -89,6 +89,23 @@ for (const segnale of ['SIGINT', 'SIGTERM']) {
   });
 }
 
+// Se MEMORIAE è già aperta (per esempio in un'altra finestra del Terminale), le porte sono occupate.
+import { createServer } from 'node:net';
+const libera = (porta) =>
+  new Promise((ok) => {
+    const srv = createServer().once('error', () => ok(false)).once('listening', () => srv.close(() => ok(true)));
+    srv.listen(porta, 'localhost');
+  });
+const occupate = [];
+for (const porta of [3000, 5173]) if (!(await libera(porta))) occupate.push(porta);
+if (occupate.length) {
+  console.log(`\nMEMORIAE sembra già aperta (porte occupate: ${occupate.join(', ')}).`);
+  console.log('- Se hai un\'altra finestra del Terminale con MEMORIAE, usa quella (http://localhost:5173) oppure fermala con Ctrl+C.');
+  console.log('- Se non la trovi, chiudi i programmi rimasti aperti con questo comando e poi riprova:');
+  console.log('    lsof -t -i :3000 -i :5173 | xargs kill\n');
+  process.exit(1);
+}
+
 console.log('Avvio MEMORIAE (server e app)… il primo avvio può richiedere qualche secondo.');
 avvia('server', ['run', 'start', '-w', '@memoriae/server']);
 avvia('app', ['run', 'dev', '-w', '@memoriae/web']);
