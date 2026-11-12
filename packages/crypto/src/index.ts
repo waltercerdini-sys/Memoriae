@@ -26,6 +26,9 @@ export {
   unwrapItemKey,
   decryptItem,
   reencryptItem,
+  encryptFile,
+  decryptFile,
+  MAX_FILE_BYTES,
   type AccessMethod,
   type EncryptedItem,
 } from './vault';

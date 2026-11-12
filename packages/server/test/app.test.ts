@@ -5,7 +5,11 @@ import type { Database } from '../src/db/client';
 import { auditLog, providers } from '../src/db/schema';
 import { PROVIDER_SEED, seedProviders } from '../src/db/seed-providers';
 import { loadConfig } from '../src/config';
-import { createTestDatabase } from './helpers';
+import { MemoryBlobStore } from '../src/storage/blobs';
+import { createFakePasskeys, createTestDatabase } from './helpers';
+
+const appFor = (db: Database) =>
+  buildApp({ db, passkeys: createFakePasskeys(), blobs: new MemoryBlobStore(), cookieSecure: false, logLevel: 'silent' });
 
 let db: Database;
 let close: () => Promise<void>;
@@ -21,7 +25,7 @@ afterAll(async () => {
 
 describe('server', () => {
   it('risponde sullo stato di salute', async () => {
-    const app = buildApp({ db, logLevel: 'silent' });
+    const app = appFor(db);
     const res = await app.inject({ method: 'GET', url: '/health' });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ stato: 'ok' });
@@ -30,7 +34,7 @@ describe('server', () => {
   });
 
   it('pubblica il catalogo fornitori', async () => {
-    const app = buildApp({ db, logLevel: 'silent' });
+    const app = appFor(db);
     const res = await app.inject({ method: 'GET', url: '/v1/fornitori' });
     const body = res.json() as { fornitori: { slug: string; verificatoIl: string | null }[] };
     expect(body.fornitori).toHaveLength(PROVIDER_SEED.length);
@@ -66,5 +70,12 @@ describe('configurazione', () => {
     const c = loadConfig({ DATABASE_URL: 'postgres://x' });
     expect(c.PORT).toBe(3000);
     expect(c.NODE_ENV).toBe('development');
+    expect(c.COOKIE_SECURE).toBe(false);
+    expect(c.WEBAUTHN_ORIGINS).toEqual(['http://localhost:5173']);
+  });
+
+  it('in produzione impone cookie sicuri', () => {
+    expect(loadConfig({ DATABASE_URL: 'postgres://x', NODE_ENV: 'production' }).COOKIE_SECURE).toBe(true);
+    expect(() => loadConfig({ DATABASE_URL: 'postgres://x', NODE_ENV: 'production', COOKIE_SECURE: 'false' })).toThrow(/HTTPS/);
   });
 });

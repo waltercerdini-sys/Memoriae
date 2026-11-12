@@ -1,16 +1,26 @@
+import cookie from '@fastify/cookie';
 import { asc, sql } from 'drizzle-orm';
 import Fastify, { type FastifyInstance } from 'fastify';
+import type { PasskeyService } from './auth/passkeys';
 import type { Database } from './db/client';
 import { providers } from './db/schema';
+import { authRoutes } from './routes/auth';
+import { vaultRoutes } from './routes/vault';
+import type { BlobStore } from './storage/blobs';
 
 export interface AppOptions {
   db: Database;
+  passkeys: PasskeyService;
+  blobs: BlobStore;
+  cookieSecure: boolean;
   logLevel?: string;
 }
 
-export function buildApp({ db, logLevel = 'info' }: AppOptions): FastifyInstance {
+export function buildApp({ db, passkeys, blobs, cookieSecure, logLevel = 'info' }: AppOptions): FastifyInstance {
   // Nei log solo metodo, percorso e stato: mai corpi delle richieste né dati personali.
-  const app = Fastify({ logger: { level: logLevel } });
+  const app = Fastify({ logger: { level: logLevel }, bodyLimit: 1024 * 1024 });
+
+  app.register(cookie);
 
   app.addHook('onSend', async (_req, reply) => {
     reply.header('X-Content-Type-Options', 'nosniff');
@@ -42,6 +52,9 @@ export function buildApp({ db, logLevel = 'info' }: AppOptions): FastifyInstance
       .orderBy(asc(providers.name));
     return { fornitori: rows };
   });
+
+  app.register(authRoutes, { db, passkeys, cookieSecure });
+  app.register(vaultRoutes, { db, blobs });
 
   return app;
 }

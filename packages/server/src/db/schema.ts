@@ -47,6 +47,38 @@ export const users = pgTable('users', {
   updatedAt: updatedAt(),
 }, (t) => [uniqueIndex('users_email_idx').on(t.email)]);
 
+/** Passkey registrate (WebAuthn). Il server conserva solo la chiave pubblica della passkey. */
+export const passkeyCredentials = pgTable('passkey_credentials', {
+  id: text('id').primaryKey(), // credential ID, base64url
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  publicKey: text('public_key').notNull(), // base64url (COSE)
+  counter: bigint('counter', { mode: 'number' }).notNull().default(0),
+  transports: jsonb('transports').notNull().default(sql`'[]'::jsonb`),
+  deviceType: text('device_type'),
+  backedUp: boolean('backed_up').notNull().default(false),
+  label: text('label'),
+  createdAt: createdAt(),
+  lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+}, (t) => [index('passkey_credentials_user_idx').on(t.userId)]);
+
+/** Sfide WebAuthn in corso: valgono pochi minuti e una volta sola. */
+export const authChallenges = pgTable('auth_challenges', {
+  id: id(),
+  challenge: text('challenge').notNull(),
+  purpose: text('purpose').notNull(), // 'registrazione' | 'accesso'
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  createdAt: createdAt(),
+});
+
+/** Sessioni: nel database solo l'hash del token, il token sta nel cookie. */
+export const sessions = pgTable('sessions', {
+  tokenHash: text('token_hash').primaryKey(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  createdAt: createdAt(),
+}, (t) => [index('sessions_user_idx').on(t.userId)]);
+
 export const vaults = pgTable('vaults', {
   id: id(),
   ownerId: uuid('owner_id').notNull().references(() => users.id, { onDelete: 'restrict' }),

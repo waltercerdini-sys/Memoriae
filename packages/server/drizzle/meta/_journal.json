@@ -15,6 +15,13 @@
       "when": 1794433683808,
       "tag": "0001_registro_non_modificabile",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794471316422,
+      "tag": "0002_passkey_e_sessioni",
+      "breakpoints": true
     }
   ]
 }

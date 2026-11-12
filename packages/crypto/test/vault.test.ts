@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   createVaultKey,
+  decryptFile,
   decryptItem,
+  encryptFile,
   deriveKeyFromPasskeySecret,
   deriveKeyFromPassword,
   encryptItem,
@@ -51,6 +53,20 @@ describe('cassaforte e voci', () => {
     const { item, itemKey } = await encryptItem(vaultKey, 'voce-1', utf8('v1'));
     const updated = await reencryptItem(itemKey, item, utf8('v2'));
     expect(fromUtf8(await decryptItem(itemKey, updated))).toBe('v2');
+  });
+});
+
+describe('file allegati', () => {
+  it('cifra e decifra un file legato alla sua voce', async () => {
+    const vaultKey = await createVaultKey();
+    const { itemKey } = await encryptItem(vaultKey, 'voce-1', utf8('meta'));
+    const pdf = new Uint8Array(100_000).map((_, i) => i % 251);
+    const blob = await encryptFile(itemKey, 'voce-1', pdf);
+    expect(blob.slice(0, 4)).toEqual(new Uint8Array([0x4d, 0x45, 0x4d, 0x31]));
+    expect(await decryptFile(itemKey, 'voce-1', blob)).toEqual(pdf);
+    await expect(decryptFile(itemKey, 'voce-2', blob)).rejects.toThrow(MemoriaeCryptoError);
+    blob[blob.length - 1] = blob[blob.length - 1]! ^ 1;
+    await expect(decryptFile(itemKey, 'voce-1', blob)).rejects.toThrow(MemoriaeCryptoError);
   });
 });
 
