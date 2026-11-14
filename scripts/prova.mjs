@@ -90,12 +90,20 @@ for (const segnale of ['SIGINT', 'SIGTERM']) {
 }
 
 // Se MEMORIAE è già aperta (per esempio in un'altra finestra del Terminale), le porte sono occupate.
-import { createServer } from 'node:net';
-const libera = (porta) =>
+import { connect, createServer } from 'node:net';
+// Sul Mac «localhost» può essere sia 127.0.0.1 sia ::1: si controllano entrambi, e si prova anche a collegarsi.
+const prova = (porta, host) =>
   new Promise((ok) => {
-    const srv = createServer().once('error', () => ok(false)).once('listening', () => srv.close(() => ok(true)));
-    srv.listen(porta, 'localhost');
+    const srv = createServer().once('error', (e) => ok(e.code !== 'EADDRINUSE')).once('listening', () => srv.close(() => ok(true)));
+    srv.listen(porta, host);
   });
+const risponde = (porta, host) =>
+  new Promise((ok) => {
+    const c = connect({ port: porta, host }).once('connect', () => { c.destroy(); ok(true); }).once('error', () => ok(false));
+    c.setTimeout(800, () => { c.destroy(); ok(false); });
+  });
+const libera = async (porta) =>
+  (await prova(porta, '127.0.0.1')) && (await prova(porta, '::1')) && !(await risponde(porta, '127.0.0.1')) && !(await risponde(porta, '::1'));
 const occupate = [];
 for (const porta of [3000, 5173]) if (!(await libera(porta))) occupate.push(porta);
 if (occupate.length) {
