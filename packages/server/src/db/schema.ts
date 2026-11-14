@@ -276,6 +276,8 @@ export const providers = pgTable('providers', {
   verifiedAt: timestamp('verified_at', { withTimezone: true }),
   /** verificato: letto sulla pagina ufficiale · parziale: la pagina copre solo una parte · da-verificare: nessuna fonte ufficiale trovata. */
   verification: text('verification').notNull().default('da-verificare'),
+  /** Siti con cui il servizio compare negli elenchi di password esportati. */
+  domains: jsonb('domains').notNull().default(sql`'[]'::jsonb`),
   /** Limiti e avvertenze (per esempio cosa non è accessibile agli eredi). */
   note: text('note'),
   createdAt: createdAt(),

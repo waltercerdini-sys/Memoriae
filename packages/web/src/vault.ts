@@ -33,6 +33,14 @@ export interface ContenutoVoce {
   /** Volontà: a chi va questa voce (id delle persone) e cosa fare dell'account. Restano cifrate. */
   destinatari?: string[];
   azione?: AzioneAccount;
+  /** «Trova tutto»: categoria e sito d'origine, indirizzi usati per entrare (mai password). */
+  categoria?: string;
+  dominio?: string;
+  accessi?: string[];
+  /** Abbonamento indicato dall'utente: importo mensile in franchi. */
+  abbonamento?: { chfMese: number };
+  /** L'utente ha già impostato la funzione d'eredità del fornitore (contatto erede, account inattivo…). */
+  impostatoDaVivo?: boolean;
   /** Documenti allegati: nome e tipo restano cifrati qui; il server vede solo id e dimensione. */
   files?: FileVoce[];
   /** Versione precedente: un solo documento, con lo stesso id della voce. */
@@ -176,7 +184,7 @@ async function caricaDocumenti(itemId: string, itemKey: Uint8Array, files: File[
 
 export async function aggiungiVoce(
   vaultKey: Uint8Array,
-  dati: { tipo: TipoVoce; emergenza: boolean; titolo: string; note: string; fornitore?: string; files?: File[] },
+  dati: { tipo: TipoVoce; emergenza: boolean; titolo: string; note: string; fornitore?: string; files?: File[]; extra?: Partial<ContenutoVoce> },
 ): Promise<void> {
   const id = crypto.randomUUID();
   const files = dati.files ?? [];
@@ -186,6 +194,7 @@ export async function aggiungiVoce(
     note: dati.note,
     ...(dati.fornitore ? { fornitore: dati.fornitore } : {}),
     ...(meta.length ? { files: meta } : {}),
+    ...(dati.extra ?? {}),
   };
   const { item, itemKey } = await encryptItem(vaultKey, id, utf8(JSON.stringify(contenuto)));
   await api.creaVoce({ id, tipo: dati.tipo, emergenza: dati.emergenza, chiaveVoceCifrata: item.wrappedItemKey, contenuto: item.content });

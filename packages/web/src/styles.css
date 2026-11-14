@@ -457,3 +457,105 @@ a {
 .documenti button + button {
   margin-left: 0;
 }
+
+/* Trova tutto e prontezza */
+.prontezza {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 4px 0 8px;
+}
+
+.prontezza-riga {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+.prontezza-barra {
+  height: 12px;
+  border-radius: 999px;
+  background: var(--sfondo2);
+  overflow: hidden;
+}
+
+.prontezza-barra span {
+  display: block;
+  height: 100%;
+  background: var(--accento);
+  border-radius: 999px;
+  transition: width 0.6s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prontezza-barra span {
+    transition: none;
+  }
+}
+
+.prontezza-passi {
+  margin: 0;
+  padding-left: 1.3em;
+}
+
+.azioni-voci {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.zona-file {
+  border: 2px dashed var(--accento);
+  border-radius: var(--raggio);
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-weight: 700;
+}
+
+.gruppo-account {
+  border-top: 1px solid var(--sfondo2);
+  padding: 6px 0;
+}
+
+.gruppo-account summary {
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 1.1rem;
+  padding: 10px 0;
+}
+
+.elenco-account {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.elenco-account li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 16px;
+}
+
+.elenco-account .pillola {
+  margin-left: 8px;
+}
+
+.importo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.95rem;
+}
+
+.importo input {
+  width: 8em;
+}

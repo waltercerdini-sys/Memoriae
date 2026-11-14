@@ -119,6 +119,15 @@ Hosting previsto: Infomaniak Public Cloud (Svizzera).
   browser, che apre i pacchetti, consegna quelli cifrati per i destinatari e mostra quelli da consegnare a mano.
 - **Emergenza**: solo le voci d'emergenza, per 30 giorni; il proprietario può chiudere l'accesso prima.
 
+## Trova tutto
+
+L'utente esporta l'elenco delle password dal Mac/iPhone, da Chrome, Firefox o Bitwarden (file .csv) e lo sceglie in MEMORIAE.
+Il file viene letto **solo nel browser**: si tengono il nome dei siti e l'indirizzo e-mail usato per entrare, le password
+vengono scartate e nulla del file viene inviato. I servizi riconosciuti (catalogo MEMORIAE e circa 150 servizi noti, soprattutto
+svizzeri) diventano voci dell'inventario, divise per categoria; per gli abbonamenti l'utente indica quanto paga al mese.
+In cima all'inventario un indicatore dice quanto è pronta l'eredità digitale e quali sono i prossimi passi.
+La prova `node e2e/trova.mjs` controlla anche che nessuna password parta verso il server.
+
 ## Catalogo dei servizi
 
 Per ogni servizio (Apple, Google, Microsoft, Facebook, PayPal, Bitwarden, SwissID, TWINT, PostFinance, UBS,

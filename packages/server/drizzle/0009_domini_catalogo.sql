@@ -1,0 +1,1 @@
+ALTER TABLE "providers" ADD COLUMN "domains" jsonb DEFAULT '[]'::jsonb NOT NULL;

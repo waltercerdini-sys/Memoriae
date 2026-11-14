@@ -4,7 +4,9 @@ import { Controllo } from './Controllo';
 import { Fiducia, statoCaso } from './Fiducia';
 import { Operatore } from './Operatore';
 import { Piano, RigaPiano } from './Piano';
+import { calcolaProntezza, type Prontezza } from './prontezza';
 import { SchedaFornitore } from './SchedaFornitore';
+import { TrovaTutto } from './TrovaTutto';
 import { Persone } from './Persone';
 import { sincronizzaRilascio, type StatoRilascio } from './rilascio';
 import { aggiornaVoce, aggiungiDocumenti, aggiungiVoce, documentiDi, leggiVoci, MAX_DOCUMENTI, rimuoviDocumento, scaricaFile, type AzioneAccount, type ContenutoVoce, type Voce } from './vault';
@@ -47,8 +49,9 @@ export function Inventario({
   const [mieiCasi, setMieiCasi] = useState<Caso[]>([]);
   const [stato, setStato] = useState<StatoRilascio | null>(null);
   const [scheda, setScheda] = useState<'voci' | 'persone' | 'controllo' | 'altri' | 'operatore'>('voci');
-  const [vista, setVista] = useState<{ tipo: 'elenco' } | { tipo: 'nuova' } | { tipo: 'dettaglio'; id: string } | { tipo: 'piano' }>({ tipo: 'elenco' });
+  const [vista, setVista] = useState<{ tipo: 'elenco' } | { tipo: 'nuova' } | { tipo: 'dettaglio'; id: string } | { tipo: 'piano' } | { tipo: 'trova' }>({ tipo: 'elenco' });
   const [piano, setPiano] = useState<StatoPiano | null>(null);
+  const [controlloAttivo, setControlloAttivo] = useState(true);
   const [errore, setErrore] = useState<string | null>(null);
   const [esito, setEsito] = useState<string | null>(null);
 
@@ -71,7 +74,10 @@ export function Inventario({
     api.operatore().then((r) => setOperatore({ prova: r.prova })).catch(() => setOperatore(null));
     api.mieiCasi().then((r) => setMieiCasi(r.casi)).catch(() => setMieiCasi([]));
     api.abbonamento().then(setPiano).catch(() => setPiano(null));
+    api.controllo().then((c) => setControlloAttivo(!c.inPausa)).catch(() => undefined);
   }, [ricarica]);
+
+  const prontezza = voci ? calcolaProntezza(voci, persone, fornitori, controlloAttivo) : null;
 
   async function bloccaMio(id: string, chiudi: boolean) {
     setErrore(null);
@@ -109,6 +115,23 @@ export function Inventario({
         onIndietro={() => {
           setVista({ tipo: 'elenco' });
           api.abbonamento().then(setPiano).catch(() => undefined);
+        }}
+      />
+    );
+  }
+
+  if (vista.tipo === 'trova') {
+    return (
+      <TrovaTutto
+        vaultKey={vaultKey}
+        fornitori={fornitori}
+        voci={voci ?? []}
+        onAnnulla={() => setVista({ tipo: 'elenco' })}
+        onFatto={async (n) => {
+          await ricarica();
+          setScheda('voci');
+          setVista({ tipo: 'elenco' });
+          setEsito(`Aggiunte ${n === 1 ? '1 voce' : `${n} voci`} alla cassaforte. Ora decidi a chi va ciascuna e cosa fare degli account.`);
         }}
       />
     );
@@ -162,7 +185,16 @@ export function Inventario({
             setScheda('persone');
           }}
         />
-        {f && <SchedaFornitore f={f} />}
+        {f && (
+          <SchedaFornitore
+            f={f}
+            impostato={!!v.contenuto.impostatoDaVivo}
+            onImpostato={async (fatto) => {
+              await aggiornaVoce(vaultKey, v, { ...v.contenuto, impostatoDaVivo: fatto }, v.emergenza);
+              await ricarica();
+            }}
+          />
+        )}
         <button
           className="pericolo"
           onClick={async () => {
@@ -185,6 +217,7 @@ export function Inventario({
     <section className="passo larga">
       <h1>La cassaforte di {utente.nome.split(' ')[0]}</h1>
       <RigaPiano st={piano} onApri={() => setVista({ tipo: 'piano' })} />
+      {prontezza && <BarraProntezza p={prontezza} />}
       {invito && (
         <div className="riquadro evidenza">
           <h2>{invito.proprietario} ti ha scelto</h2>
@@ -265,9 +298,15 @@ export function Inventario({
         <>
           {voci === null && <p className="tenue">Apro la cassaforte…</p>}
           {voci && voci.length === 0 && (
-            <div className="riquadro">
+            <div className="riquadro evidenza">
               <h2>Cominciamo dall'elenco</h2>
-              <p>Aggiungi le cose che chi resta dovrà trovare: indirizzo e-mail principale, banca online, abbonamenti, telefono.</p>
+              <p>
+                Il modo più veloce: <strong>Trova tutto</strong> legge l'elenco delle password del tuo computer (senza tenere le password) e
+                prepara in pochi minuti l'elenco di banche, posta, assicurazioni e abbonamenti.
+              </p>
+              <button className="primario" onClick={() => setVista({ tipo: 'trova' })}>
+                Trova tutto
+              </button>
             </div>
           )}
           {voci && voci.length > 0 && (
@@ -282,6 +321,9 @@ export function Inventario({
                       {chi.length > 0 && <span className="tenue">Per: {chi.join(', ')}</span>}
                       <span className="dettagli">
                         {v.emergenza && <span className="pillola">Emergenza</span>}
+                        {v.contenuto.abbonamento && (
+                          <span className="pillola chiara">CHF {v.contenuto.abbonamento.chfMese.toFixed(2)} al mese</span>
+                        )}
                         {(() => {
                           const n = documentiDi(v.id, v.contenuto).length;
                           return n > 0 && <span className="pillola chiara">{n === 1 ? '1 documento' : `${n} documenti`}</span>;
@@ -293,9 +335,16 @@ export function Inventario({
               })}
             </ul>
           )}
-          <button className="primario" onClick={() => setVista({ tipo: 'nuova' })}>
-            Aggiungi una voce
-          </button>
+          <div className="azioni-voci">
+            <button className="primario" onClick={() => setVista({ tipo: 'nuova' })}>
+              Aggiungi una voce
+            </button>
+            {voci && voci.length > 0 && (
+              <button className="secondario" onClick={() => setVista({ tipo: 'trova' })}>
+                Trova tutto
+              </button>
+            )}
+          </div>
         </>
       )}
     </section>
@@ -615,6 +664,36 @@ function Documenti(p: {
         </>
       )}
       {errore && <p className="avviso">{errore}</p>}
+    </div>
+  );
+}
+
+/** «La tua eredità digitale è pronta al …%»: un numero solo e i prossimi passi. */
+function BarraProntezza({ p }: { p: Prontezza }) {
+  const [aperta, setAperta] = useState(false);
+  return (
+    <div className="prontezza">
+      <div className="prontezza-riga">
+        <span>
+          La tua eredità digitale è pronta al <strong>{p.percento}%</strong>
+        </span>
+        {p.passi.length > 0 && (
+          <button className="link" aria-expanded={aperta} onClick={() => setAperta(!aperta)}>
+            {aperta ? 'Nascondi' : 'Cosa manca?'}
+          </button>
+        )}
+      </div>
+      <div className="prontezza-barra" role="progressbar" aria-valuenow={p.percento} aria-valuemin={0} aria-valuemax={100} aria-label="Eredità digitale pronta">
+        <span style={{ width: `${p.percento}%` }} />
+      </div>
+      {aperta && (
+        <ol className="prontezza-passi">
+          {p.passi.slice(0, 4).map((x) => (
+            <li key={x}>{x}</li>
+          ))}
+        </ol>
+      )}
+      {p.abbonamentiAnno > 0 && <p className="tenue">Abbonamenti in elenco: circa CHF {p.abbonamentiAnno.toLocaleString('de-CH')} all'anno.</p>}
     </div>
   );
 }

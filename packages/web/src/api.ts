@@ -64,6 +64,7 @@ export interface Fornitore {
   verificatoIl: string | null;
   verifica: 'verificato' | 'parziale' | 'da-verificare';
   nota: string | null;
+  domini: string[];
 }
 
 export type Ruolo = 'fiduciario' | 'destinatario' | 'fiduciario-destinatario';
