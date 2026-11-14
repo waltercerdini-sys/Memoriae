@@ -1,5 +1,5 @@
 import type { Fornitore, Persona } from './api';
-import { IMPORTANTI, type Categoria } from './trovatutto';
+import { IMPORTANTI, type Categoria } from './elencoPassword';
 import type { Voce } from './vault';
 
 /**

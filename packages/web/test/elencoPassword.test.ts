@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dominioDi, leggiCsv, totaleAnnuo, trovaAccount, type ServizioCatalogo } from '../src/trovatutto';
+import { dominioDi, leggiCsv, totaleAnnuo, trovaAccount, type ServizioCatalogo } from '../src/elencoPassword';
 
 const catalogo: ServizioCatalogo[] = [
   { slug: 'postfinance', nome: 'PostFinance', categoria: 'banca', domini: ['postfinance.ch'] },

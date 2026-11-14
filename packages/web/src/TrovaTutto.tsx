@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { Fornitore } from './api';
-import { NOME_CATEGORIA, totaleAnnuo, trovaAccount, type AccountTrovato, type Categoria, type EsitoLettura } from './trovatutto';
+import { NOME_CATEGORIA, totaleAnnuo, trovaAccount, type AccountTrovato, type Categoria, type EsitoLettura } from './elencoPassword';
 import { aggiungiVoce, type Voce } from './vault';
 
 type Fonte = 'apple' | 'chrome' | 'firefox' | 'bitwarden' | 'altro';
