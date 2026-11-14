@@ -16,7 +16,22 @@ const config = loadConfig();
 const { db, migrate, close } = createDatabase(config.DATABASE_URL);
 // Database integrato (prove sul proprio computer): si prepara da solo all'avvio.
 if (config.DATABASE_URL.startsWith('pglite:')) {
-  await migrate();
+  try {
+    await migrate();
+  } catch (e) {
+    const cartella = config.DATABASE_URL.slice('pglite:'.length);
+    console.error(
+      `\n✖ Il database delle prove non si apre (${cartella}).\n` +
+        `  Succede di solito se è stato copiato mentre MEMORIAE era ancora accesa, o se il computer si è spento di colpo.\n` +
+        `  1. Controlla che non ci sia un'altra MEMORIAE accesa (chiudi gli altri Terminali, oppure riavvia il Mac).\n` +
+        `  2. Riprova con npm run prova.\n` +
+        `  3. Se l'errore resta, metti da parte i dati e riparti da zero:\n` +
+        `       mv "${cartella.replace(/\/db$/, '')}" "${cartella.replace(/\/db$/, '')}-guasta"\n` +
+        `     poi npm run prova (e nell'app Password cancella le passkey di «localhost»).\n` +
+        `  Dettaglio tecnico: ${(e as Error).cause instanceof Error ? ((e as Error).cause as Error).message : (e as Error).message}\n`,
+    );
+    process.exit(1);
+  }
   await seedProviders(db);
 }
 const masterKey = await loadDevMasterKey(config.CUSTODY_KEY_FILE);
