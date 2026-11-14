@@ -181,6 +181,12 @@ export function TrovaTutto(p: { vaultKey: Uint8Array; fornitori: Fornitore[]; vo
       <p className="tenue">
         Letto un file di {esito.formato} con {esito.righe} righe. {esito.passwordScartate > 0 && `${esito.passwordScartate} password lette e scartate: nessuna è stata salvata né inviata.`}
       </p>
+      {!esito.account.some((a) => a.categoria === 'e-mail') && (
+        <p className="avviso">
+          Non abbiamo trovato caselle di posta. Se leggi la posta con un programma come Mail di Apple, la casella spesso non compare in
+          questo elenco: aggiungila a mano con «Aggiungi una voce» › Account (in Mail la trovi in Impostazioni › Account).
+        </p>
+      )}
 
       {perCategoria.map(({ c, lista }) => (
         <details key={c} className="gruppo-account" open={c !== 'altro'}>
