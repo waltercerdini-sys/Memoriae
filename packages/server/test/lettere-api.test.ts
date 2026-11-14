@@ -35,7 +35,7 @@ afterAll(async () => {
   await close();
 });
 
-const req = (u: TestUser | null, method: 'GET' | 'POST' | 'PUT', url: string, payload?: unknown) =>
+const req = (u: TestUser | null, method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', url: string, payload?: unknown) =>
   app.inject({ method, url, headers: u ? { cookie: u.session } : {}, payload: payload as never });
 
 describe('lettere nel tempo', () => {
@@ -66,14 +66,14 @@ describe('lettere nel tempo', () => {
     const lettera = async (titolo: string, destinatarioId: string, consegnaIl: string | null) => {
       const id = randomUUID();
       const { item, itemKey } = await encryptItem(rosa.vaultKey, id, utf8(JSON.stringify({ titolo, note: `Testo: ${titolo}` })));
-      const r = await req(rosa, 'POST', '/v1/cassaforte/voci', { id, tipo: 'lettera', chiaveVoceCifrata: item.wrappedItemKey, contenuto: item.content, lettera: { destinatarioId, consegnaIl } });
+      const r = await req(rosa, 'POST', '/v1/cassaforte/voci', { id, tipo: 'lettera', chiaveVoceCifrata: item.wrappedItemKey, contenuto: item.content, lettera: { destinatari: [destinatarioId], consegnaIl } });
       expect(r.statusCode).toBe(201);
       return { id, itemKey, item };
     };
     // Una lettera senza destinatario, o con un destinatario di un'altra cassaforte, è rifiutata.
     const { item: x } = await encryptItem(rosa.vaultKey, randomUUID(), utf8('{}'));
     expect((await req(rosa, 'POST', '/v1/cassaforte/voci', { id: randomUUID(), tipo: 'lettera', chiaveVoceCifrata: x.wrappedItemKey, contenuto: x.content })).statusCode).toBe(400);
-    expect((await req(rosa, 'POST', '/v1/cassaforte/voci', { id: randomUUID(), tipo: 'lettera', chiaveVoceCifrata: x.wrappedItemKey, contenuto: x.content, lettera: { destinatarioId: randomUUID(), consegnaIl: null } })).statusCode).toBe(400);
+    expect((await req(rosa, 'POST', '/v1/cassaforte/voci', { id: randomUUID(), tipo: 'lettera', chiaveVoceCifrata: x.wrappedItemKey, contenuto: x.content, lettera: { destinatari: [randomUUID()], consegnaIl: null } })).statusCode).toBe(400);
 
     const subito = await lettera('Per Marco, adesso', marcoId, null);
     const diciotto = await lettera('Per i tuoi 30 anni', marcoId, futuro);
@@ -85,7 +85,7 @@ describe('lettere nel tempo', () => {
       payload: Buffer.from(await encryptFile(diciotto.itemKey, `${diciotto.id}/${audioId}`, utf8('audio della nonna'))),
     });
     const mie = (await req(rosa, 'GET', '/v1/cassaforte/voci')).json().voci;
-    expect(mie.find((v: { id: string }) => v.id === diciotto.id).lettera).toMatchObject({ destinatarioId: marcoId, consegnaIl: futuro });
+    expect(mie.find((v: { id: string }) => v.id === diciotto.id).lettera).toMatchObject({ destinatari: [marcoId], consegnaIl: futuro });
 
     const kDec = await ownerReleaseKey(rosa.vaultId, rosa.vaultKey, setup.ownerCopy, 'decesso');
     const pMarco = await buildRecipientPackage({ vaultId: rosa.vaultId, packageId: `${marcoId}:decesso`, scope: 'decesso', releaseKey: kDec, recipientId: marcoId, recipientPublicKey: await pk(marcoId), items: [subito, diciotto].map((l) => ({ itemId: l.id, itemKey: l.itemKey })) });
@@ -132,5 +132,50 @@ describe('lettere nel tempo', () => {
     const k2 = chiavi.find((k) => k.itemId === diciotto.id)!.itemKey;
     expect(JSON.parse(fromUtf8(await decryptItem(k2, { itemId: diciotto.id, wrappedItemKey: dopo.contenuto, content: dopo.contenuto }))).titolo).toBe('Per i tuoi 30 anni');
     expect((await req(marco, 'GET', `/v1/ricevuti/${ric.id}/voci/${diciotto.id}/file/${audioId}`)).statusCode).toBe(200);
+
+    // Avanzamento delle pratiche: condiviso fra chi se ne occupa.
+    const fatto = await req(marco, 'PUT', `/v1/ricevuti/${ric.id}/fatti`, { chiave: `voce:${subito.id}`, fatto: true });
+    expect(fatto.statusCode).toBe(200);
+    expect((await req(anna, 'PUT', `/v1/fiducia/casi/${caso}/fatti`, { chiave: 'passo:cassa-malati', fatto: true })).statusCode).toBe(200);
+    const visti = (await req(anna, 'GET', `/v1/fiducia/casi/${caso}/fatti`)).json().fatti as { chiave: string; da: string }[];
+    expect(visti.map((f) => f.chiave).sort()).toEqual(['passo:cassa-malati', `voce:${subito.id}`]);
+    expect(visti.find((f) => f.chiave === `voce:${subito.id}`)!.da).toBe('Marco Bianchi');
+    // Chiavi sconosciute o voci di altre cassaforti: rifiutate.
+    expect((await req(anna, 'PUT', `/v1/fiducia/casi/${caso}/fatti`, { chiave: `voce:${randomUUID()}`, fatto: true })).statusCode).toBe(404);
+    expect((await req(anna, 'PUT', `/v1/fiducia/casi/${caso}/fatti`, { chiave: 'qualcosa', fatto: true })).statusCode).toBe(400);
+    // Chi non c'entra non vede nulla.
+    expect((await req(rosa, 'GET', `/v1/fiducia/casi/${caso}/fatti`)).statusCode).not.toBe(200);
+    // Togliere la spunta.
+    await req(anna, 'PUT', `/v1/fiducia/casi/${caso}/fatti`, { chiave: 'passo:cassa-malati', fatto: false });
+    expect((await req(marco, 'GET', `/v1/ricevuti/${ric.id}/fatti`)).json().fatti).toHaveLength(1);
+  });
+
+  it('una lettera per più persone, anche «solo lettere», e chi viene tolto esce dalla lettera', async () => {
+    const lia = await utente('Lia Neri', 'lia.l@example.ch');
+    const [aId, bId] = [randomUUID(), randomUUID()];
+    expect((await req(lia, 'POST', '/v1/cassaforte/persone', { id: aId, ruolo: 'destinatario', nome: 'Aldo', email: 'aldo@example.ch' })).statusCode).toBe(201);
+    expect((await req(lia, 'POST', '/v1/cassaforte/persone', { id: bId, ruolo: 'destinatario', nome: 'Bea', email: 'bea@example.ch', soloLettere: true })).statusCode).toBe(201);
+    // «Solo lettere» vale solo per i destinatari.
+    expect((await req(lia, 'POST', '/v1/cassaforte/persone', { id: randomUUID(), ruolo: 'fiduciario', nome: 'X', soloLettere: true })).statusCode).toBe(400);
+    const persone = (await req(lia, 'GET', '/v1/cassaforte/persone')).json().persone as { id: string; soloLettere: boolean; statoInvito: string }[];
+    expect(persone.find((p) => p.id === bId)).toMatchObject({ soloLettere: true, statoInvito: 'da-invitare' });
+    // Nessun invito partito per Bea.
+    expect(mailer.sent.some((m) => m.to === 'bea@example.ch')).toBe(false);
+
+    // Correggere l'indirizzo.
+    expect((await req(lia, 'PATCH', `/v1/cassaforte/persone/${bId}`, { email: 'bea.nuova@example.ch' })).statusCode).toBe(200);
+    expect(((await req(lia, 'GET', '/v1/cassaforte/persone')).json().persone as { id: string; email: string }[]).find((p) => p.id === bId)!.email).toBe('bea.nuova@example.ch');
+
+    const id = randomUUID();
+    const { item } = await encryptItem(lia.vaultKey, id, utf8(JSON.stringify({ titolo: 'Per voi', note: 'Ciao' })));
+    const r = await req(lia, 'POST', '/v1/cassaforte/voci', { id, tipo: 'lettera', chiaveVoceCifrata: item.wrappedItemKey, contenuto: item.content, lettera: { destinatari: [aId, bId, aId], consegnaIl: null } });
+    expect(r.statusCode).toBe(201);
+    const voce = () => (req(lia, 'GET', '/v1/cassaforte/voci').then((x) => x.json().voci.find((v: { id: string }) => v.id === id)));
+    expect((await voce()).lettera.destinatari.sort()).toEqual([aId, bId].sort());
+    // Nessun destinatario: non valida.
+    expect((await req(lia, 'POST', '/v1/cassaforte/voci', { id: randomUUID(), tipo: 'lettera', chiaveVoceCifrata: item.wrappedItemKey, contenuto: item.content, lettera: { destinatari: [], consegnaIl: null } })).statusCode).toBe(400);
+
+    expect((await req(lia, 'DELETE', `/v1/cassaforte/persone/${aId}`)).statusCode).toBe(200);
+    expect((await voce()).lettera.destinatari).toEqual([bId]);
   });
 });

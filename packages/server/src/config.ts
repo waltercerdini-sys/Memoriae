@@ -46,6 +46,11 @@ const ConfigSchema = z.object({
   ATTESA_PROVA_SECONDI: z.coerce.number().int().positive().optional(),
   /** Ogni quanto girano i lavori periodici (promemoria, rilasci), in secondi. */
   JOBS_INTERVAL_SECONDS: z.coerce.number().int().min(5).default(300),
+  /** Controllo settimanale delle pagine ufficiali del catalogo («0» per spegnerlo). */
+  CATALOGO_CONTROLLO: z
+    .string()
+    .default('1')
+    .transform((s) => s !== '0' && s.toLowerCase() !== 'false'),
   /** Pagamenti: «prova» (sviluppo, nessun denaro) oppure «stripe» (TWINT e carte). */
   PAYMENTS_PROVIDER: z.enum(['prova', 'stripe']).default('prova'),
   /** Invio vero delle e-mail (SMTP). In prova è facoltativo: senza, le e-mail restano nel terminale. */

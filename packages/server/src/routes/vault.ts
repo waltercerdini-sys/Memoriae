@@ -49,8 +49,11 @@ const ReplaceAccess = z.object({
 });
 
 const ItemType = z.enum(['account', 'documento', 'cartella', 'istruzione', 'crypto', 'dispositivo', 'lettera']);
-/** Per le lettere: a chi va e da quando si può leggere (null = appena possibile dopo l'apertura). */
-const Lettera = z.object({ destinatarioId: z.string().uuid(), consegnaIl: z.string().datetime({ offset: true }).nullable() });
+/** Per le lettere: a chi va (una o più persone) e da quando si può leggere (null = appena possibile dopo l'apertura). */
+const Lettera = z.object({
+  destinatari: z.array(z.string().uuid()).min(1).max(50),
+  consegnaIl: z.string().datetime({ offset: true }).nullable(),
+});
 const CreateItem = z.object({
   id: z.string().uuid(),
   tipo: ItemType,
@@ -199,7 +202,7 @@ export async function vaultRoutes(app: FastifyInstance, opts: VaultRouteOptions)
         chiaveVoceCifrata: r.wrappedItemKey,
         contenuto: r.content,
         file: files.get(r.id) ?? [],
-        ...(r.type === 'lettera' ? { lettera: { destinatarioId: r.letterRecipientId, consegnaIl: r.deliverAt } } : {}),
+        ...(r.type === 'lettera' ? { lettera: { destinatari: r.letterRecipientIds, consegnaIl: r.deliverAt } } : {}),
         creataIl: r.createdAt,
         modificataIl: r.updatedAt,
       })),
@@ -212,7 +215,7 @@ export async function vaultRoutes(app: FastifyInstance, opts: VaultRouteOptions)
     const v = await ownVault(req.user!.id);
     if (!v) return reply.code(404).send({ errore: 'Nessuna cassaforte' });
     if ((body.data.tipo === 'lettera') !== !!body.data.lettera) return reply.code(400).send({ errore: 'Una lettera ha bisogno di destinatario e data' });
-    if (body.data.lettera && !(await ownPerson(v.id, body.data.lettera.destinatarioId))) return reply.code(400).send({ errore: 'Destinatario non trovato' });
+    if (body.data.lettera && !(await ownPersons(v.id, body.data.lettera.destinatari))) return reply.code(400).send({ errore: 'Destinatario non trovato' });
     await db.insert(items).values({
       ...(body.data.lettera ? letterColumns(body.data.lettera) : {}),
       id: body.data.id,
@@ -226,13 +229,15 @@ export async function vaultRoutes(app: FastifyInstance, opts: VaultRouteOptions)
     return reply.code(201).send({ id: body.data.id });
   });
 
-  async function ownPerson(vaultId: string, personId: string) {
-    const [p] = await db.select({ id: persons.id }).from(persons).where(and(eq(persons.id, personId), eq(persons.vaultId, vaultId))).limit(1);
-    return p ?? null;
+  /** Tutte le persone indicate appartengono a questa cassaforte. */
+  async function ownPersons(vaultId: string, personIds: string[]) {
+    const ids = [...new Set(personIds)];
+    const rows = await db.select({ id: persons.id }).from(persons).where(and(inArray(persons.id, ids), eq(persons.vaultId, vaultId)));
+    return rows.length === ids.length;
   }
 
   const letterColumns = (l: z.infer<typeof Lettera>) => ({
-    letterRecipientId: l.destinatarioId,
+    letterRecipientIds: [...new Set(l.destinatari)],
     deliverAt: l.consegnaIl ? new Date(l.consegnaIl) : null,
     letterNotifiedAt: null,
     // Una lettera non fa mai parte dell'emergenza.
@@ -252,7 +257,7 @@ export async function vaultRoutes(app: FastifyInstance, opts: VaultRouteOptions)
     if (!p.success || !body.success) return reply.code(400).send({ errore: 'Richiesta non valida' });
     const found = await ownItem(req.user!.id, p.data.id);
     if (!found) return reply.code(404).send({ errore: 'Voce non trovata' });
-    if (body.data.lettera && !(await ownPerson(found.vault.id, body.data.lettera.destinatarioId))) return reply.code(400).send({ errore: 'Destinatario non trovato' });
+    if (body.data.lettera && !(await ownPersons(found.vault.id, body.data.lettera.destinatari))) return reply.code(400).send({ errore: 'Destinatario non trovato' });
     await db
       .update(items)
       .set({

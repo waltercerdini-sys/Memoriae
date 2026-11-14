@@ -333,7 +333,8 @@ export async function seedProviders(db: Database): Promise<number> {
       .values(values)
       .onConflictDoUpdate({
         target: providers.slug,
-        set: { ...values, updatedAt: sql`now()` },
+        // La data di verifica non torna mai indietro: una revisione dell'operatore resta valida dopo un riavvio.
+        set: { ...values, verifiedAt: sql`greatest(excluded.verified_at, ${providers.verifiedAt})`, updatedAt: sql`now()` },
       });
   }
   return PROVIDER_SEED.length;

@@ -137,8 +137,9 @@ await page.getByRole('button', { name: /Conto PostFinance/ }).waitFor();
 await page.getByRole('button', { name: /iCloud/ }).click();
 await page.getByRole('heading', { name: 'iCloud', exact: true }).waitFor();
 await page.getByRole('button', { name: "‹ Torna all'elenco" }).click();
-await page.getByRole('button', { name: 'Cosa manca?' }).click();
-await page.getByText(/seconda persona come contatto erede per Apple/).waitFor();
+// Tornando all'elenco la voce è in vista ed evidenziata, con quello che manca.
+await page.locator('li.appena', { hasText: 'iCloud' }).waitFor();
+await page.locator('li', { hasText: 'iCloud' }).getByText("Manca: cosa fare dell'account, a chi va").waitFor();
 await shot('08c-contatto-erede');
 step('contatto erede di Apple e chiave di accesso salvati');
 

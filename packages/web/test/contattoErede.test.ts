@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { mancanzeErede } from '../src/contattoErede';
-import { calcolaProntezza } from '../src/prontezza';
+import { calcolaProntezza, statoVoce } from '../src/prontezza';
 import type { ContenutoVoce, Voce } from '../src/vault';
 
 const voce = (c: Partial<ContenutoVoce>): Voce =>
@@ -33,9 +33,23 @@ describe('contatto erede', () => {
     expect(mancanzeErede(voce({ fornitore: 'facebook', erede: { contatti: ['Anna'] } }), 'Facebook')).toEqual([]);
   });
 
-  it('i passi compaiono nell\'indicatore di prontezza', () => {
+  it('la regola unica: una voce è completa solo con chi la riceve, la volontà e la funzione d\'eredità', () => {
     const f = { slug: 'apple', nome: 'Apple (iCloud, iPhone, Mac)', daVivi: ['x'] } as never;
-    const p = calcolaProntezza([voce({ fornitore: 'apple', impostatoDaVivo: true, erede: { contatti: ['Anna'] } })], [], [f], true);
-    expect(p.passi.some((x) => x.includes('chiave di accesso del contatto erede di Apple'))).toBe(true);
+    const base = { fornitore: 'apple', destinatari: ['p1'], azione: 'cancellare' as const };
+    expect(statoVoce(voce({ ...base }), [f]).manca).toEqual(["funzione d'eredità da impostare"]);
+    expect(statoVoce(voce({ ...base, impostatoDaVivo: true }), [f]).manca).toEqual(['chi è il contatto erede']);
+    expect(statoVoce(voce({ ...base, erede: { contatti: ['Anna'] } }), [f]).manca).toEqual(['chiave di accesso del contatto erede']);
+    const doc = { id: 'f1', nome: 'chiave.pdf', tipo: 'application/pdf', dimensione: 10 };
+    expect(statoVoce(voce({ ...base, files: [doc], erede: { contatti: ['Anna'], chiaveFileId: 'f1' } }), [f]).completa).toBe(true);
+    // Volontà senza nessuno che se ne occupi: non è completa.
+    expect(statoVoce(voce({ azione: 'cancellare' }), []).manca).toEqual(['chi se ne occupa']);
+    expect(statoVoce(voce({}), []).manca).toEqual(["cosa fare dell'account", 'a chi va']);
+  });
+
+  it('percentuale e voci da completare', () => {
+    const p = calcolaProntezza([voce({ destinatari: ['p1'], azione: 'cancellare' }), voce({})], [], [], true);
+    expect(p.daCompletare).toBe(1);
+    expect(p.percento).toBe(Math.round(10 + 65 / 2));
+    expect(p.avvisi.map((a) => a.azione)).toEqual(['persone']);
   });
 });

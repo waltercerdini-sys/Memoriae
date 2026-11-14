@@ -49,7 +49,16 @@ export function SchedaFornitore({
       )}
       {f.nota && <p className="note">{f.nota}</p>}
       <p className="tenue">
-        {f.verifica === 'da-verificare' ? (
+        {f.daRicontrollare && f.statoPagina === 'cambiata' ? (
+          <>
+            La{' '}
+            <a href={f.fonte!} target="_blank" rel="noreferrer noopener">
+              pagina ufficiale
+            </a>{' '}
+            è cambiata{f.controllataIl ? ` (controllo del ${data(f.controllataIl)})` : ''}: MEMORIAE sta ricontrollando queste indicazioni. Nel frattempo
+            segui la pagina ufficiale.
+          </>
+        ) : f.verifica === 'da-verificare' ? (
           <>Indicazioni generali, non ancora confermate dal fornitore.</>
         ) : (
           <>
@@ -57,7 +66,9 @@ export function SchedaFornitore({
             <a href={f.fonte!} target="_blank" rel="noreferrer noopener">
               pagina ufficiale
             </a>{' '}
-            il {data(f.verificatoIl!)}. Le procedure cambiano: ricontrolla prima di agire.
+            il {data(f.verificatoIl!)}
+            {f.statoPagina === 'invariata' && f.controllataIl && f.controllataIl > f.verificatoIl! && <>; pagina ricontrollata il {data(f.controllataIl)}, senza cambiamenti</>}
+            . Le procedure cambiano: ricontrolla prima di agire.
           </>
         )}
       </p>

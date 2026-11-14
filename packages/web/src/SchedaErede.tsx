@@ -9,8 +9,11 @@ export function SchedaErede(p: {
   servizio: string;
   onSalvaContatti: (contatti: string[]) => Promise<void>;
   onAllegaChiave: (file: File) => Promise<void>;
+  onSostituisciChiave: (vecchia: FileVoce, file: File) => Promise<void>;
+  onTogliChiave: (vecchia: FileVoce) => Promise<void>;
   onApri: (f: FileVoce) => Promise<void>;
 }) {
+  const [conferma, setConferma] = useState(false);
   const contatti = p.voce.contenuto.erede?.contatti ?? [];
   const chiave = documentoChiave(p.voce);
   const [nuovo, setNuovo] = useState('');
@@ -84,12 +87,48 @@ export function SchedaErede(p: {
             <b>La {p.fz.chiave.nome}</b>
           </p>
           {chiave ? (
-            <p>
-              Allegata: «{chiave.nome}».{' '}
-              <button className="link" onClick={() => esegui(() => p.onApri(chiave))}>
-                Apri
-              </button>
-            </p>
+            <>
+              <p>
+                Allegata: «{chiave.nome}».{' '}
+                <button className="link" onClick={() => esegui(() => p.onApri(chiave))}>
+                  Apri
+                </button>
+              </p>
+              <div className="azioni-voci">
+                <label className="secondario pulsante-file">
+                  {lavoro ? 'Cifro e salvo…' : 'Sostituisci con un altro file'}
+                  <input
+                    type="file"
+                    accept=".pdf,application/pdf,image/*"
+                    disabled={lavoro}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = '';
+                      if (file)
+                        void esegui(async () => {
+                          await p.onSostituisciChiave(chiave, file);
+                          setAppenaAllegata(true);
+                        });
+                    }}
+                  />
+                </label>
+                {conferma ? (
+                  <span className="conferma">
+                    Togliere la chiave?{' '}
+                    <button className="link" disabled={lavoro} onClick={() => esegui(async () => { await p.onTogliChiave(chiave); setConferma(false); setAppenaAllegata(false); })}>
+                      Sì, togli
+                    </button>{' '}
+                    <button className="link" onClick={() => setConferma(false)}>
+                      No
+                    </button>
+                  </span>
+                ) : (
+                  <button className="link" onClick={() => setConferma(true)}>
+                    Togli
+                  </button>
+                )}
+              </div>
+            </>
           ) : (
             <>
               <p className="tenue">{p.fz.chiave.comeSalvarla}</p>

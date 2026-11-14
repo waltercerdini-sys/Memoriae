@@ -68,6 +68,9 @@ export function buildApp({ db, passkeys, blobs, mailer, custody, appOrigin, cook
         verifica: providers.verification,
         nota: providers.note,
         domini: providers.domains,
+        controllataIl: providers.sourceCheckedAt,
+        statoPagina: providers.sourceStatus,
+        daRicontrollare: providers.needsReview,
       })
       .from(providers)
       .orderBy(asc(providers.name));

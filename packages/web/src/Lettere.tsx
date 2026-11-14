@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Persona } from './api';
+import { api, type Persona } from './api';
 import { aggiungiVoce } from './vault';
 
 export const dataLunga = (s: string) => new Date(s).toLocaleDateString('it-CH', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -10,16 +10,31 @@ function domani(): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** Una lettera per il futuro: per una persona, da aprire subito dopo o in una data precisa. */
+/** «Anna», «Anna e Marco», «Anna, Marco e 2 altri». */
+export function nomiDestinatari(ids: string[], persone: Persona[]): string {
+  const nomi = persone.filter((p) => ids.includes(p.id)).map((p) => p.nome);
+  if (nomi.length <= 2) return nomi.join(' e ');
+  if (nomi.length === 3) return `${nomi[0]}, ${nomi[1]} e ${nomi[2]}`;
+  return `${nomi[0]}, ${nomi[1]} e ${nomi.length - 2} altri`;
+}
+
+interface NuovoIndirizzo {
+  nome: string;
+  email: string;
+}
+
+/** Una lettera per il futuro: per una o più persone, da aprire subito dopo o in una data precisa. */
 export function NuovaLettera(p: {
   vaultKey: Uint8Array;
   persone: Persona[];
   scegliDocumenti: (files: File[], onCambia: (f: File[]) => void) => React.ReactNode;
-  onFatto: () => Promise<void>;
+  onFatto: (id: string) => Promise<void>;
   onAnnulla: () => void;
-  onVaiPersone: () => void;
 }) {
-  const [per, setPer] = useState(p.persone[0]?.id ?? '');
+  const [per, setPer] = useState<string[]>(p.persone.length === 1 ? [p.persone[0]!.id] : []);
+  const [nuovi, setNuovi] = useState<NuovoIndirizzo[]>([]);
+  const [nomeNuovo, setNomeNuovo] = useState('');
+  const [emailNuova, setEmailNuova] = useState('');
   const [quando, setQuando] = useState<'subito' | 'data'>('data');
   const [data, setData] = useState('');
   const [titolo, setTitolo] = useState('');
@@ -28,65 +43,97 @@ export function NuovaLettera(p: {
   const [salvo, setSalvo] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
 
-  if (p.persone.length === 0) {
-    return (
-      <section className="passo">
-        <h1>Lettera per il futuro</h1>
-        <p>Una lettera va sempre a qualcuno: aggiungi prima la persona (anche senza e-mail, per esempio un nipote piccolo).</p>
-        <button className="primario" onClick={p.onVaiPersone}>
-          Aggiungi una persona
-        </button>
-        <button className="link" onClick={p.onAnnulla}>
-          Annulla
-        </button>
-      </section>
-    );
+  const quanti = per.length + nuovi.length;
+  const primoNome = p.persone.find((x) => x.id === per[0])?.nome ?? nuovi[0]?.nome ?? '';
+  const emailValida = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailNuova.trim());
+
+  function aggiungiIndirizzo() {
+    const nome = nomeNuovo.trim();
+    const email = emailNuova.trim().toLowerCase();
+    if (!nome || !emailValida) return setErrore('Scrivi il nome e un indirizzo e-mail valido.');
+    if (nuovi.some((x) => x.email === email) || p.persone.some((x) => x.email === email)) return setErrore('Questo indirizzo c\'è già.');
+    setErrore(null);
+    setNuovi([...nuovi, { nome, email }]);
+    setNomeNuovo('');
+    setEmailNuova('');
   }
 
-  const persona = p.persone.find((x) => x.id === per);
   return (
     <form
       className="passo"
       onSubmit={async (e) => {
         e.preventDefault();
+        if (quanti === 0) return setErrore('Scegli almeno una persona a cui va la lettera.');
         if (quando === 'data' && !data) return setErrore('Scegli il giorno in cui la lettera si aprirà.');
         setErrore(null);
         setSalvo(true);
         try {
+          // Chi non è tra le persone viene aggiunto come destinatario «solo lettere», senza invito.
+          const aggiunti: string[] = [];
+          for (const n of nuovi) {
+            const id = crypto.randomUUID();
+            await api.aggiungiPersona({ id, ruolo: 'destinatario', nome: n.nome, email: n.email, soloLettere: true });
+            aggiunti.push(id);
+          }
+          const destinatari = [...per, ...aggiunti];
           // Mezzogiorno ora svizzera: la lettera si apre nel corso di quel giorno.
           const consegnaIl = quando === 'data' ? new Date(`${data}T12:00:00+01:00`).toISOString() : null;
-          await aggiungiVoce(p.vaultKey, {
+          const id = await aggiungiVoce(p.vaultKey, {
             tipo: 'lettera',
             emergenza: false,
-            titolo: titolo.trim() || `Per ${persona?.nome ?? ''}`,
+            titolo: titolo.trim() || (quanti === 1 ? `Per ${primoNome}` : 'Per voi'),
             note: testo,
             files,
-            extra: { destinatari: [per] },
-            lettera: { destinatarioId: per, consegnaIl },
+            extra: { destinatari },
+            lettera: { destinatari, consegnaIl },
           });
-          await p.onFatto();
+          await p.onFatto(id);
         } catch (err) {
           setErrore(err instanceof Error ? err.message : 'Salvataggio non riuscito');
           setSalvo(false);
         }
       }}
     >
-      <p className="etichetta">Lettera per il futuro</p>
-      <h1>Nuova lettera</h1>
+      <p className="etichetta">Nuova lettera</p>
+      <h1>Lettera per il futuro</h1>
       <p className="tenue">
         La lettera resta chiusa e cifrata. Si apre solo dopo la tua scomparsa, verificata come ogni apertura, e non prima del giorno che
-        scegli.
+        scegli. Se la scrivi a più persone, ognuna riceve la sua copia.
       </p>
-      <label>
-        Per chi
-        <select value={per} onChange={(e) => setPer(e.target.value)}>
-          {p.persone.map((x) => (
-            <option key={x.id} value={x.id}>
-              {x.nome}
-            </option>
-          ))}
-        </select>
-      </label>
+      <fieldset className="scelte-ruolo">
+        <legend>Per chi</legend>
+        {p.persone.length === 0 && <p className="tenue">Nella scheda Persone non c'è ancora nessuno: aggiungi qui sotto nome ed e-mail.</p>}
+        {p.persone.map((x) => (
+          <label key={x.id} className="spunta">
+            <input type="checkbox" checked={per.includes(x.id)} onChange={(e) => setPer(e.target.checked ? [...per, x.id] : per.filter((y) => y !== x.id))} />
+            {x.nome}
+          </label>
+        ))}
+        {nuovi.map((n) => (
+          <p key={n.email} className="spunta">
+            <span>
+              ✓ {n.nome} <span className="tenue">({n.email})</span>
+            </span>{' '}
+            <button type="button" className="link" onClick={() => setNuovi(nuovi.filter((x) => x.email !== n.email))}>
+              Togli
+            </button>
+          </p>
+        ))}
+        <div className="riga-campi">
+          <label>
+            Nome
+            <input value={nomeNuovo} onChange={(e) => setNomeNuovo(e.target.value)} maxLength={120} placeholder="Per esempio Lucia" />
+          </label>
+          <label>
+            E-mail
+            <input type="email" value={emailNuova} onChange={(e) => setEmailNuova(e.target.value)} maxLength={254} placeholder="lucia@esempio.ch" />
+          </label>
+          <button type="button" className="secondario" disabled={!nomeNuovo.trim() || !emailValida} onClick={aggiungiIndirizzo}>
+            Aggiungi un indirizzo e-mail
+          </button>
+        </div>
+        <p className="tenue">Chi aggiungi così non riceve nessun invito adesso: la lettera resta una sorpresa.</p>
+      </fieldset>
       <fieldset className="scelte-ruolo">
         <legend>Quando si apre</legend>
         <label className="spunta">
@@ -114,7 +161,7 @@ export function NuovaLettera(p: {
       </fieldset>
       <label>
         Titolo
-        <input value={titolo} onChange={(e) => setTitolo(e.target.value)} maxLength={200} placeholder={`Per ${persona?.nome ?? ''}`} />
+        <input value={titolo} onChange={(e) => setTitolo(e.target.value)} maxLength={200} placeholder={quanti > 1 ? 'Per voi' : `Per ${primoNome}`} />
       </label>
       <label>
         La lettera
@@ -122,8 +169,8 @@ export function NuovaLettera(p: {
       </label>
       {p.scegliDocumenti(files, setFiles)}
       {errore && <p className="avviso">{errore}</p>}
-      <button className="primario" type="submit" disabled={salvo || !testo.trim()}>
-        {salvo ? 'Cifro e salvo…' : 'Chiudi la lettera nella cassaforte'}
+      <button className="primario" type="submit" disabled={salvo || !testo.trim() || quanti === 0}>
+        {salvo ? 'Cifro e salvo…' : quanti > 1 ? `Chiudi la lettera nella cassaforte (${quanti} persone)` : 'Chiudi la lettera nella cassaforte'}
       </button>
       <button className="link" type="button" onClick={p.onAnnulla}>
         Annulla

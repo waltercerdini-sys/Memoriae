@@ -5,6 +5,7 @@ import { loadConfig, loadEnvFile } from './config';
 import { createDatabase } from './db/client';
 import { seedProviders } from './db/seed-providers';
 import { startScheduler } from './jobs/scheduler';
+import { fetchPage } from './jobs/catalogo';
 import { DevMailer, FileMailer, SmtpMailer, type Mailer } from './mail/mailer';
 import { StripeProvider } from './payments/provider';
 import { LocalDiskBlobStore } from './storage/blobs';
@@ -49,7 +50,17 @@ const app = buildApp({
 });
 
 // Lavori periodici (promemoria, avvisi, rilasci a fine attesa).
-const stopJobs = startScheduler({ db, mailer, appOrigin: config.APP_ORIGIN }, config.JOBS_INTERVAL_SECONDS * 1000, (m) => app.log.info(m));
+const stopJobs = startScheduler(
+  {
+    db,
+    mailer,
+    appOrigin: config.APP_ORIGIN,
+    // Una volta alla settimana si ricontrollano le pagine ufficiali del catalogo.
+    ...(config.CATALOGO_CONTROLLO ? { catalogo: { fetchPage, operatori: config.OPERATOR_EMAILS } } : {}),
+  },
+  config.JOBS_INTERVAL_SECONDS * 1000,
+  (m) => app.log.info(m),
+);
 
 const shutdown = async () => {
   stopJobs();

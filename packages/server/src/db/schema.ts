@@ -147,7 +147,8 @@ export const items = pgTable('items', {
    * la lettera fino a quel giorno e mandare l'avviso.
    */
   deliverAt: timestamp('deliver_at', { withTimezone: true }),
-  letterRecipientId: uuid('letter_recipient_id').references(() => persons.id, { onDelete: 'set null' }),
+  /** Le persone che ricevono la lettera (una o più). Una persona eliminata viene tolta dall'elenco. */
+  letterRecipientIds: uuid('letter_recipient_ids').array().notNull().default(sql`'{}'::uuid[]`),
   letterNotifiedAt: timestamp('letter_notified_at', { withTimezone: true }),
   /** Fornitore del catalogo a cui si riferisce la voce, se è un account. */
   providerId: uuid('provider_id').references(() => providers.id, { onDelete: 'set null' }),
@@ -185,6 +186,8 @@ export const persons = pgTable('persons', {
   email: text('email'),
   phone: text('phone'),
   inviteStatus: inviteStatusEnum('invite_status').notNull().default('da-invitare'),
+  /** Destinatario aggiunto solo per una lettera: nessun invito finché la cassaforte non viene aperta. */
+  lettersOnly: boolean('letters_only').notNull().default(false),
   publicKey: text('public_key'),
   /** Metà fiduciari della chiave di rilascio, cifrata per questa persona. */
   sealedFiduciaryHalf: text('sealed_fiduciary_half'),
@@ -288,6 +291,17 @@ export const providers = pgTable('providers', {
   domains: jsonb('domains').notNull().default(sql`'[]'::jsonb`),
   /** Limiti e avvertenze (per esempio cosa non è accessibile agli eredi). */
   note: text('note'),
+  /**
+   * Controllo periodico della pagina ufficiale: impronta del testo all'ultima verifica,
+   * impronta nuova se la pagina è cambiata, ultimo controllo ed esito.
+   * Una pagina cambiata non modifica mai le istruzioni: le ricontrolla un operatore.
+   */
+  sourceHash: text('source_hash'),
+  sourcePendingHash: text('source_pending_hash'),
+  sourceCheckedAt: timestamp('source_checked_at', { withTimezone: true }),
+  /** invariata · cambiata · irraggiungibile */
+  sourceStatus: text('source_status'),
+  needsReview: boolean('needs_review').notNull().default(false),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 }, (t) => [uniqueIndex('providers_slug_idx').on(t.slug)]);
@@ -319,6 +333,19 @@ export const integrityAnchors = pgTable('integrity_anchors', {
 });
 
 /** Registro eventi: si aggiunge, non si modifica (vincolo imposto anche da trigger nella migrazione). */
+/**
+ * Dopo l'apertura: cosa hanno già sistemato le persone che se ne occupano
+ * (una voce: «account chiuso»; un passo dei primi giorni: «avvisata la cassa malati»).
+ * La chiave è «voce:<id>» o «passo:<nome>»: il server non sa nulla del contenuto.
+ */
+export const heirProgress = pgTable('heir_progress', {
+  vaultId: uuid('vault_id').notNull().references(() => vaults.id, { onDelete: 'cascade' }),
+  key: text('key').notNull(),
+  doneBy: uuid('done_by').references(() => users.id, { onDelete: 'set null' }),
+  doneByName: text('done_by_name').notNull(),
+  doneAt: timestamp('done_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [uniqueIndex('heir_progress_key_idx').on(t.vaultId, t.key)]);
+
 export const auditLog = pgTable('audit_log', {
   id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
   at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),

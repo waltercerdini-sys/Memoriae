@@ -1,9 +1,9 @@
-import { and, eq, inArray, isNotNull } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { createHash, randomBytes } from 'node:crypto';
 import { z } from 'zod';
 import type { Database } from '../db/client';
-import { auditLog, persons, recipientPackages, users, vaults } from '../db/schema';
+import { auditLog, items, persons, recipientPackages, users, vaults } from '../db/schema';
 import type { Mailer } from '../mail/mailer';
 import type { KeyCustody } from '../storage/custody';
 import { requireWritablePlan } from '../payments/subscriptions';
@@ -30,6 +30,12 @@ const CreatePerson = z.object({
   ruolo: Role,
   nome: z.string().trim().min(1).max(120),
   email: z.string().trim().toLowerCase().email().max(254).optional(),
+  /** Persona aggiunta solo per ricevere una lettera: nessun invito ora. */
+  soloLettere: z.boolean().optional(),
+});
+const UpdatePerson = z.object({
+  nome: z.string().trim().min(1).max(120).optional(),
+  email: z.string().trim().toLowerCase().email().max(254).nullable().optional(),
 });
 const IdParam = z.object({ id: z.string().uuid() });
 const Token = z.object({ token: z.string().regex(/^[A-Za-z0-9_-]{43}$/) });
@@ -95,6 +101,7 @@ export async function personRoutes(app: FastifyInstance, opts: PersonRouteOption
         statoInvito: p.inviteStatus,
         chiavePubblica: p.inviteStatus === 'accettato' ? p.publicKey : null,
         haMetaFiduciario: !!p.sealedFiduciaryHalf,
+        soloLettere: p.lettersOnly,
       })),
     };
   });
@@ -105,7 +112,15 @@ export async function personRoutes(app: FastifyInstance, opts: PersonRouteOption
     const v = await ownVault(req.user!.id);
     if (!v) return reply.code(404).send({ errore: 'Nessuna cassaforte' });
     if (body.data.email && body.data.email === req.user!.email) return reply.code(400).send({ errore: 'Non puoi nominare te stesso' });
-    await db.insert(persons).values({ id: body.data.id, vaultId: v.id, role: body.data.ruolo, name: body.data.nome, email: body.data.email ?? null });
+    if (body.data.soloLettere && body.data.ruolo !== 'destinatario') return reply.code(400).send({ errore: 'Solo un destinatario può essere «solo lettere»' });
+    await db.insert(persons).values({
+      id: body.data.id,
+      vaultId: v.id,
+      role: body.data.ruolo,
+      name: body.data.nome,
+      email: body.data.email ?? null,
+      lettersOnly: body.data.soloLettere ?? false,
+    });
     await db.insert(auditLog).values({ actor: req.user!.id, action: 'persona-aggiunta', vaultId: v.id, details: { persona: body.data.id, ruolo: body.data.ruolo } });
     return reply.code(201).send({ id: body.data.id });
   });
@@ -115,8 +130,36 @@ export async function personRoutes(app: FastifyInstance, opts: PersonRouteOption
     if (!p.success) return reply.code(400).send({ errore: 'Richiesta non valida' });
     const found = await ownPerson(req.user!.id, p.data.id);
     if (!found) return reply.code(404).send({ errore: 'Persona non trovata' });
+    // La persona esce anche dalle lettere che doveva ricevere.
+    await db
+      .update(items)
+      .set({ letterRecipientIds: sql`array_remove(${items.letterRecipientIds}, ${p.data.id}::uuid)` })
+      .where(and(eq(items.vaultId, found.vault.id), sql`${p.data.id}::uuid = ANY(${items.letterRecipientIds})`));
     await db.delete(persons).where(eq(persons.id, p.data.id));
     await db.insert(auditLog).values({ actor: req.user!.id, action: 'persona-rimossa', vaultId: found.vault.id, details: { persona: p.data.id } });
+    return { ok: true };
+  });
+
+  /** Correggere nome o e-mail di chi non ha ancora accettato (per esempio un destinatario «solo lettere»). */
+  app.patch('/v1/cassaforte/persone/:id', { preHandler: [auth, piano] }, async (req, reply) => {
+    const p = IdParam.safeParse(req.params);
+    const body = UpdatePerson.safeParse(req.body);
+    if (!p.success || !body.success) return reply.code(400).send({ errore: 'Dati della persona non validi' });
+    const found = await ownPerson(req.user!.id, p.data.id);
+    if (!found) return reply.code(404).send({ errore: 'Persona non trovata' });
+    if (found.person.inviteStatus === 'accettato' && body.data.email !== undefined) {
+      return reply.code(409).send({ errore: 'Ha già accettato: l\'e-mail è quella del suo account' });
+    }
+    if (body.data.email && body.data.email === req.user!.email) return reply.code(400).send({ errore: 'Non puoi nominare te stesso' });
+    await db
+      .update(persons)
+      .set({
+        ...(body.data.nome ? { name: body.data.nome } : {}),
+        ...(body.data.email !== undefined ? { email: body.data.email } : {}),
+        updatedAt: new Date(),
+      })
+      .where(eq(persons.id, p.data.id));
+    await db.insert(auditLog).values({ actor: req.user!.id, action: 'persona-modificata', vaultId: found.vault.id, details: { persona: p.data.id } });
     return { ok: true };
   });
 

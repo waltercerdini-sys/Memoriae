@@ -21,29 +21,38 @@ export async function notifyDueLetters({ db, mailer, appOrigin }: JobContext, no
       .where(and(eq(activationCases.vaultId, it.vaultId), eq(activationCases.scope, 'decesso'), eq(activationCases.status, 'rilasciata')))
       .limit(1);
     if (!aperta) continue; // il proprietario è in vita: la lettera aspetta
-    const [dest] = it.letterRecipientId
+    const nome = owner.split(' ')[0];
+    const destinatari = it.letterRecipientIds.length
       ? await db
           .select({ p: persons, email: users.email })
           .from(persons)
           .leftJoin(users, eq(users.id, persons.userId))
-          .where(eq(persons.id, it.letterRecipientId))
+          .where(inArray(persons.id, it.letterRecipientIds))
       : [];
-    const [pacchetto] = it.letterRecipientId
-      ? await db
-          .select({ id: recipientPackages.id })
-          .from(recipientPackages)
-          .where(and(eq(recipientPackages.recipientId, it.letterRecipientId), eq(recipientPackages.scope, 'decesso'), isNotNull(recipientPackages.deliveredInner)))
-      : [];
-    const nome = owner.split(' ')[0];
-    if (dest?.email && pacchetto) {
-      await mailer.send({
-        to: dest.email,
-        subject: `MEMORIAE – oggi si apre una lettera di ${owner}`,
-        text: `Ciao ${dest.p.name.split(' ')[0]},\n${nome} aveva scritto una lettera per te, da aprire proprio oggi.\nLa trovi in MEMORIAE, nella scheda «Per gli altri»: ${appOrigin}`,
-      });
-      sent++;
-    } else {
-      // Destinatario senza account (o pacchetto non ancora consegnato): avvisiamo le persone di fiducia.
+    const consegnati = it.letterRecipientIds.length
+      ? new Set(
+          (
+            await db
+              .select({ id: recipientPackages.recipientId })
+              .from(recipientPackages)
+              .where(and(inArray(recipientPackages.recipientId, it.letterRecipientIds), eq(recipientPackages.scope, 'decesso'), isNotNull(recipientPackages.deliveredInner)))
+          ).map((r) => r.id),
+        )
+      : new Set<string>();
+    const senzaAccount: string[] = [];
+    for (const dest of destinatari) {
+      if (dest.email && consegnati.has(dest.p.id)) {
+        await mailer.send({
+          to: dest.email,
+          subject: `MEMORIAE – oggi si apre una lettera di ${owner}`,
+          text: `Ciao ${dest.p.name.split(' ')[0]},\n${nome} aveva scritto una lettera per te, da aprire proprio oggi.\nLa trovi in MEMORIAE, nella scheda «Per gli altri»: ${appOrigin}`,
+        });
+        sent++;
+      } else senzaAccount.push(dest.p.name);
+    }
+    if (senzaAccount.length > 0 || destinatari.length === 0) {
+      // Destinatari senza account (o pacchetto non ancora consegnato): avvisiamo le persone di fiducia.
+      const per = senzaAccount.length ? senzaAccount.join(', ') : 'una persona';
       const fiduciari = await db
         .select({ nome: persons.name, email: users.email })
         .from(persons)
@@ -52,9 +61,9 @@ export async function notifyDueLetters({ db, mailer, appOrigin }: JobContext, no
       for (const f of fiduciari) {
         await mailer.send({
           to: f.email,
-          subject: `MEMORIAE – oggi si apre la lettera di ${owner} per ${dest?.p.name ?? 'una persona'}`,
+          subject: `MEMORIAE – oggi si apre la lettera di ${owner} per ${per}`,
           text:
-            `Ciao ${f.nome.split(' ')[0]},\n${nome} aveva preparato una lettera per ${dest?.p.name ?? 'una persona a lei cara'}, da consegnare oggi.\n` +
+            `Ciao ${f.nome.split(' ')[0]},\n${nome} aveva preparato una lettera per ${senzaAccount.length ? per : 'una persona a lei cara'}, da consegnare oggi.\n` +
             `Aprila in MEMORIAE (scheda «Per gli altri» › Apri) e consegnala tu: ${appOrigin}`,
         });
         sent++;

@@ -16,10 +16,14 @@ const STATO: Record<Persona['statoInvito'], string> = {
   revocato: 'Revocato',
 };
 
-export function Persone(p: { persone: Persona[]; stato: StatoRilascio | null; onCambio: () => Promise<void> }) {
+export function Persone(p: { persone: Persona[]; stato: StatoRilascio | null; onCambio: () => Promise<void>; onAnteprima?: (id: string) => void }) {
   const [aggiungi, setAggiungi] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
   const [occupato, setOccupato] = useState<string | null>(null);
+  const [modifica, setModifica] = useState<string | null>(null);
+  const [nuovaEmail, setNuovaEmail] = useState('');
+  const principali = p.persone.filter((x) => !x.soloLettere);
+  const soloLettere = p.persone.filter((x) => x.soloLettere);
 
   async function azione(id: string, fn: () => Promise<unknown>) {
     setErrore(null);
@@ -60,9 +64,9 @@ export function Persone(p: { persone: Persona[]; stato: StatoRilascio | null; on
         </p>
       )}
       {errore && <p className="avviso">{errore}</p>}
-      {p.persone.length === 0 && <p className="tenue">Non hai ancora indicato nessuno.</p>}
+      {principali.length === 0 && <p className="tenue">Non hai ancora indicato nessuno.</p>}
       <ul className="voci">
-        {p.persone.map((x) => (
+        {principali.map((x) => (
           <li key={x.id} className="persona">
             <span className="etichetta">{NOME_RUOLO[x.ruolo]}</span>
             <span className="titolo">{x.nome}</span>
@@ -74,6 +78,11 @@ export function Persone(p: { persone: Persona[]; stato: StatoRilascio | null; on
               {x.email && x.statoInvito !== 'accettato' && (
                 <button className="secondario piccolo" disabled={occupato === x.id} onClick={() => azione(x.id, () => api.invita(x.id))}>
                   {x.statoInvito === 'invitato' ? 'Invia di nuovo' : 'Invia invito'}
+                </button>
+              )}
+              {p.onAnteprima && (
+                <button className="link" onClick={() => p.onAnteprima!(x.id)}>
+                  Guarda cosa riceverà
                 </button>
               )}
               <button
@@ -92,6 +101,66 @@ export function Persone(p: { persone: Persona[]; stato: StatoRilascio | null; on
       <button className="primario" onClick={() => setAggiungi(true)}>
         Aggiungi una persona
       </button>
+      {soloLettere.length > 0 && (
+        <>
+          <h2>Ricevono solo lettere</h2>
+          <p className="tenue">Le hai aggiunte scrivendo una lettera. Non ricevono nessun invito finché la cassaforte non viene aperta.</p>
+          <ul className="voci">
+            {soloLettere.map((x) => (
+              <li key={x.id} className="persona">
+                <span className="titolo">{x.nome}</span>
+                {modifica === x.id ? (
+                  <form
+                    className="riga-campi"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      void azione(x.id, async () => {
+                        await api.modificaPersona(x.id, { email: nuovaEmail.trim() || null });
+                        setModifica(null);
+                      });
+                    }}
+                  >
+                    <label>
+                      E-mail
+                      <input type="email" value={nuovaEmail} onChange={(e) => setNuovaEmail(e.target.value)} maxLength={254} />
+                    </label>
+                    <button className="secondario" type="submit" disabled={occupato === x.id}>
+                      Salva
+                    </button>
+                    <button className="link" type="button" onClick={() => setModifica(null)}>
+                      Annulla
+                    </button>
+                  </form>
+                ) : (
+                  <>
+                    <span className="tenue">{x.email ?? 'Nessuna e-mail'}</span>
+                    <span className="azioni">
+                      <button
+                        className="link"
+                        onClick={() => {
+                          setNuovaEmail(x.email ?? '');
+                          setModifica(x.id);
+                        }}
+                      >
+                        Correggi l'e-mail
+                      </button>
+                      <button
+                        className="link"
+                        disabled={occupato === x.id}
+                        onClick={() => {
+                          if (window.confirm(`Rimuovere ${x.nome}? Non riceverà più le lettere che le hai scritto.`)) void azione(x.id, () => api.rimuoviPersona(x.id));
+                        }}
+                      >
+                        Rimuovi
+                      </button>
+                    </span>
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </div>
   );
 }

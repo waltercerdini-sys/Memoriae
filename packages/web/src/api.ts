@@ -44,7 +44,8 @@ export type TipoVoce = 'account' | 'documento' | 'cartella' | 'istruzione' | 'cr
 
 /** Lettera nel tempo: a chi va e da quando si può leggere (null = appena possibile dopo l'apertura). */
 export interface MetaLettera {
-  destinatarioId: string;
+  /** Una o più persone (ognuna riceve la lettera nel suo pacchetto). */
+  destinatari: string[];
   consegnaIl: string | null;
 }
 
@@ -56,7 +57,7 @@ export interface VoceRemota {
   contenuto: Envelope;
   /** File cifrati della voce (id e dimensione; il nome è nel contenuto cifrato). */
   file: { id: string; byte: number }[];
-  lettera?: { destinatarioId: string | null; consegnaIl: string | null };
+  lettera?: { destinatari: string[]; consegnaIl: string | null };
   creataIl: string;
   modificataIl: string;
 }
@@ -72,9 +73,30 @@ export interface Fornitore {
   verifica: 'verificato' | 'parziale' | 'da-verificare';
   nota: string | null;
   domini: string[];
+  /** Ultimo controllo automatico della pagina ufficiale. */
+  controllataIl: string | null;
+  statoPagina: 'invariata' | 'cambiata' | 'irraggiungibile' | null;
+  daRicontrollare: boolean;
+}
+
+export interface SchedaDaRicontrollare {
+  slug: string;
+  nome: string;
+  fonte: string | null;
+  stato: 'cambiata' | 'irraggiungibile' | 'invariata' | null;
+  controllataIl: string | null;
+  verificatoIl: string | null;
 }
 
 export type Ruolo = 'fiduciario' | 'destinatario' | 'fiduciario-destinatario';
+export interface Fatto {
+  chiave: string;
+  da: string;
+  il: string;
+}
+export type DoveFatti = { caso: string } | { ricevuto: string };
+const baseFatti = (d: DoveFatti) => ('caso' in d ? `/v1/fiducia/casi/${d.caso}` : `/v1/ricevuti/${d.ricevuto}`);
+
 export type StatoInvito = 'da-invitare' | 'invitato' | 'accettato' | 'rifiutato' | 'revocato';
 
 export interface Persona {
@@ -85,6 +107,8 @@ export interface Persona {
   statoInvito: StatoInvito;
   chiavePubblica: string | null;
   haMetaFiduciario: boolean;
+  /** Aggiunta solo per ricevere una lettera: nessun invito finché la cassaforte non viene aperta. */
+  soloLettere: boolean;
 }
 
 export interface PacchettoRemoto {
@@ -227,7 +251,8 @@ export const api = {
     call<{ id: string }>('POST', '/v1/cassaforte/voci', v),
   modificaVoce: (id: string, dati: { contenuto?: Envelope; emergenza?: boolean; lettera?: MetaLettera }) => call<{ ok: true }>('PATCH', `/v1/cassaforte/voci/${id}`, dati),
   persone: () => call<{ persone: Persona[] }>('GET', '/v1/cassaforte/persone'),
-  aggiungiPersona: (p: { id: string; ruolo: Ruolo; nome: string; email?: string }) => call<{ id: string }>('POST', '/v1/cassaforte/persone', p),
+  aggiungiPersona: (p: { id: string; ruolo: Ruolo; nome: string; email?: string; soloLettere?: boolean }) => call<{ id: string }>('POST', '/v1/cassaforte/persone', p),
+  modificaPersona: (id: string, p: { nome?: string; email?: string | null }) => call<{ ok: true }>('PATCH', `/v1/cassaforte/persone/${id}`, p),
   rimuoviPersona: (id: string) => call<{ ok: true }>('DELETE', `/v1/cassaforte/persone/${id}`),
   invita: (id: string) => call<{ ok: true }>('POST', `/v1/cassaforte/persone/${id}/invito`),
   invito: (token: string) => call<{ proprietario: string; ruolo: Ruolo; nome: string }>('GET', `/v1/inviti/${token}`),
@@ -252,6 +277,9 @@ export const api = {
   ricevuti: () => call<{ ricevuti: Ricevuto[] }>('GET', '/v1/ricevuti'),
   vociRicevute: (id: string) => call<{ voci: VoceCondivisa[] }>('GET', `/v1/ricevuti/${id}/voci`),
   fileRicevuto: (id: string, itemId: string, fileId: string) => bytes(`/v1/ricevuti/${id}/voci/${itemId}/file/${fileId}`),
+  /** Avanzamento delle pratiche dopo l'apertura, condiviso fra chi se ne occupa. */
+  fatti: (dove: DoveFatti) => call<{ fatti: Fatto[] }>('GET', `${baseFatti(dove)}/fatti`),
+  segnaFatto: (dove: DoveFatti, chiave: string, fatto: boolean) => call<{ fatti: Fatto[] }>('PUT', `${baseFatti(dove)}/fatti`, { chiave, fatto }),
   mieiCasi: () => call<{ casi: Caso[] }>('GET', '/v1/cassaforte/casi'),
   bloccaCaso: (id: string) => call<{ ok: true }>('POST', `/v1/cassaforte/casi/${id}/blocca`),
   chiudiEmergenza: (id: string) => call<{ ok: true }>('POST', `/v1/cassaforte/casi/${id}/chiudi`),
@@ -259,6 +287,8 @@ export const api = {
   bloccaDaEmail: (token: string) => call<{ ok: true }>('POST', `/v1/blocca/${token}`),
   operatore: () => call<{ operatore: true; prova: boolean }>('GET', '/v1/operatore'),
   casiOperatore: () => call<{ casi: CasoOperatore[] }>('GET', '/v1/operatore/casi'),
+  catalogoDaRicontrollare: () => call<{ daRicontrollare: SchedaDaRicontrollare[] }>('GET', '/v1/operatore/catalogo'),
+  schedaRicontrollata: (slug: string) => call<{ ok: true }>('POST', `/v1/operatore/catalogo/${slug}/ricontrollato`),
   documentoOperatore: (casoId: string, docId: string) => bytes(`/v1/operatore/casi/${casoId}/documenti/${docId}`),
   avviaVerifica: (id: string) => call<{ ok: true }>('POST', `/v1/operatore/casi/${id}/avvia`),
   approva: (id: string, nota?: string) => call<{ ok: true; attesaFinoAl: string }>('POST', `/v1/operatore/casi/${id}/approva`, { nota }),

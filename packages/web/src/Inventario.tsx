@@ -1,18 +1,20 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, type Caso, type Fornitore, type StatoPiano, type Persona, type Ruolo, type TipoVoce, type Utente } from './api';
 import { Controllo } from './Controllo';
 import { Fiducia, statoCaso } from './Fiducia';
 import { Operatore } from './Operatore';
 import { Piano, RigaPiano } from './Piano';
-import { calcolaProntezza, type Prontezza } from './prontezza';
+import { calcolaProntezza, statoVoce, type Prontezza } from './prontezza';
 import { SchedaFornitore } from './SchedaFornitore';
 import { SchedaErede } from './SchedaErede';
 import { funzioneErede } from './contattoErede';
 import { TrovaTutto } from './TrovaTutto';
-import { dataLunga, FoglioLettera, NuovaLettera } from './Lettere';
+import { dataLunga, FoglioLettera, NuovaLettera, nomiDestinatari } from './Lettere';
 import { Persone } from './Persone';
+import { Anteprima } from './Anteprima';
+import { Fascicolo } from './Fascicolo';
 import { sincronizzaRilascio, type StatoRilascio } from './rilascio';
-import { aggiornaVoce, aggiungiDocumenti, aggiungiVoce, documentiDi, leggiVoci, MAX_DOCUMENTI, rimuoviDocumento, scaricaFile, type AzioneAccount, type ContenutoVoce, type Voce } from './vault';
+import { aggiornaVoce, aggiungiDocumenti, aggiungiVoce, documentiDi, leggiVoci, MAX_DOCUMENTI, rimuoviDocumento, scaricaFile, sostituisciDocumento, type AzioneAccount, type ContenutoVoce, type Voce } from './vault';
 
 const TIPI: { tipo: TipoVoce; nome: string; descrizione: string }[] = [
   { tipo: 'account', nome: 'Account', descrizione: 'E-mail, social, banca online, abbonamenti' },
@@ -53,7 +55,7 @@ export function Inventario({
   const [mieiCasi, setMieiCasi] = useState<Caso[]>([]);
   const [stato, setStato] = useState<StatoRilascio | null>(null);
   const [scheda, setScheda] = useState<'voci' | 'persone' | 'controllo' | 'altri' | 'operatore'>('voci');
-  const [vista, setVista] = useState<{ tipo: 'elenco' } | { tipo: 'nuova' } | { tipo: 'dettaglio'; id: string } | { tipo: 'piano' } | { tipo: 'trova' } | { tipo: 'lettera' }>({ tipo: 'elenco' });
+  const [vista, setVista] = useState<{ tipo: 'elenco' } | { tipo: 'nuova' } | { tipo: 'dettaglio'; id: string } | { tipo: 'piano' } | { tipo: 'trova' } | { tipo: 'lettera' } | { tipo: 'anteprima'; id: string | null } | { tipo: 'fascicolo' }>({ tipo: 'elenco' });
 
   // Il tasto «indietro» del browser torna alla schermata precedente dentro MEMORIAE invece di uscire.
   useEffect(() => {
@@ -76,6 +78,13 @@ export function Inventario({
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, []);
+  /** Ultima voce aperta o aggiunta: tornando all'elenco la ritroviamo lì, evidenziata. */
+  const [ultima, setUltima] = useState<string | null>(null);
+  const [filtro, setFiltro] = useState<'tutte' | 'da-completare'>('tutte');
+  const apri = (id: string) => {
+    setUltima(id);
+    setVista({ tipo: 'dettaglio', id });
+  };
   const [piano, setPiano] = useState<StatoPiano | null>(null);
   const [controlloAttivo, setControlloAttivo] = useState(true);
   const [errore, setErrore] = useState<string | null>(null);
@@ -104,6 +113,17 @@ export function Inventario({
   }, [ricarica]);
 
   const prontezza = voci ? calcolaProntezza(voci, persone, fornitori, controlloAttivo) : null;
+
+  // Tornando all'elenco: la voce appena gestita in vista, evidenziata per un attimo.
+  useEffect(() => {
+    if (vista.tipo !== 'elenco' || scheda !== 'voci' || !ultima || !voci) return;
+    const el = document.getElementById(`voce-${ultima}`);
+    if (!el) return;
+    el.scrollIntoView({ block: 'center' });
+    el.classList.add('appena');
+    const t = setTimeout(() => el.classList.remove('appena'), 2000);
+    return () => clearTimeout(t);
+  }, [vista, scheda, ultima, voci]);
 
   async function bloccaMio(id: string, chiudi: boolean) {
     setErrore(null);
@@ -163,6 +183,25 @@ export function Inventario({
     );
   }
 
+  if (vista.tipo === 'anteprima') {
+    return (
+      <Anteprima
+        persone={persone}
+        voci={voci ?? []}
+        fornitori={fornitori}
+        proprietario={utente.nome}
+        personaId={vista.id}
+        onScegli={(id) => setVista({ tipo: 'anteprima', id: id || null })}
+        onIndietro={() => setVista({ tipo: 'elenco' })}
+        onApriVoce={apri}
+      />
+    );
+  }
+
+  if (vista.tipo === 'fascicolo') {
+    return <Fascicolo proprietario={utente.nome} voci={voci ?? []} persone={persone} fornitori={fornitori} onIndietro={() => setVista({ tipo: 'elenco' })} />;
+  }
+
   if (vista.tipo === 'lettera') {
     return (
       <NuovaLettera
@@ -172,12 +211,9 @@ export function Inventario({
           <ScegliDocumenti files={files} onCambia={onCambia} etichetta="Foto, audio o video da allegare (facoltativi, massimo 25 MB ciascuno)" />
         )}
         onAnnulla={() => setVista({ tipo: 'elenco' })}
-        onVaiPersone={() => {
-          setVista({ tipo: 'elenco' });
-          setScheda('persone');
-        }}
-        onFatto={async () => {
+        onFatto={async (id) => {
           await ricarica();
+          setUltima(id);
           setVista({ tipo: 'elenco' });
           setEsito('Lettera chiusa nella cassaforte. Resterà cifrata fino al giorno che hai scelto.');
         }}
@@ -192,8 +228,9 @@ export function Inventario({
         onLettera={() => setVista({ tipo: 'lettera' })}
         onAnnulla={() => setVista({ tipo: 'elenco' })}
         onSalva={async (dati) => {
-          await aggiungiVoce(vaultKey, dati);
+          const id = await aggiungiVoce(vaultKey, dati);
           await ricarica();
+          setUltima(id);
           setVista({ tipo: 'elenco' });
         }}
       />
@@ -209,16 +246,17 @@ export function Inventario({
     }
     const f = fornitori.find((x) => x.slug === v.contenuto.fornitore);
     if (v.tipo === 'lettera') {
-      const per = persone.find((x) => x.id === v.remota.lettera?.destinatarioId);
+      const per = nomiDestinatari(v.remota.lettera?.destinatari ?? [], persone);
       const quando = v.remota.lettera?.consegnaIl;
       return (
         <section className="passo">
-<button className="link indietro" onClick={() => setVista({ tipo: 'elenco' })}>
+          <button className="link indietro" onClick={() => setVista({ tipo: 'elenco' })}>
             ‹ Torna all'elenco
           </button>
+          {prontezza && <BarraProntezza p={prontezza} compatta />}
           <p className="etichetta">Lettera per il futuro</p>
           <p className="pillola chiara">
-            Per {per?.nome ?? 'una persona rimossa'} · {quando ? `si apre il ${dataLunga(quando)}` : 'si apre insieme alla cassaforte'}
+            {per ? `Per ${per}` : 'Nessun destinatario: la persona è stata rimossa'} · {quando ? `si apre il ${dataLunga(quando)}` : 'si apre insieme alla cassaforte'}
           </p>
           <FoglioLettera titolo={v.contenuto.titolo} testo={v.contenuto.note} />
           <Documenti
@@ -252,9 +290,10 @@ export function Inventario({
     }
     return (
       <section className="passo">
-<button className="link indietro" onClick={() => setVista({ tipo: 'elenco' })}>
+        <button className="link indietro" onClick={() => setVista({ tipo: 'elenco' })}>
           ‹ Torna all'elenco
         </button>
+        {prontezza && <BarraProntezza p={prontezza} compatta />}
         <p className="etichetta">{nomeTipo(v.tipo)}</p>
         <h1>{v.contenuto.titolo}</h1>
         {v.emergenza && <p className="pillola">Serve in caso di emergenza</p>}
@@ -272,6 +311,7 @@ export function Inventario({
           }}
         />
         <Volonta
+          key={v.id}
           voce={v}
           persone={persone}
           onSalva={async (contenuto, emergenza) => {
@@ -307,6 +347,14 @@ export function Inventario({
               await aggiungiDocumenti(vaultKey, v, [file], (nuovi) => ({ erede: { contatti: v.contenuto.erede?.contatti ?? [], chiaveFileId: nuovi[0]?.id } }));
               await ricarica();
             }}
+            onSostituisciChiave={async (vecchia, file) => {
+              await sostituisciDocumento(vaultKey, v, vecchia.id, file, (nuovo) => ({ erede: { contatti: v.contenuto.erede?.contatti ?? [], chiaveFileId: nuovo.id } }));
+              await ricarica();
+            }}
+            onTogliChiave={async (vecchia) => {
+              await rimuoviDocumento(vaultKey, v, vecchia.id);
+              await ricarica();
+            }}
             onApri={(x) => scaricaFile(vaultKey, v, x)}
           />
         )}
@@ -333,6 +381,17 @@ export function Inventario({
       <h1>La cassaforte di {utente.nome.split(' ')[0]}</h1>
       <RigaPiano st={piano} onApri={() => setVista({ tipo: 'piano' })} />
       {prontezza && <BarraProntezza p={prontezza} />}
+      {prontezza?.avvisi.map((a) => (
+        <div key={a.azione} className="riquadro avviso-azione">
+          <p>{a.testo}</p>
+          <button
+            className="secondario"
+            onClick={() => setScheda(a.azione)}
+          >
+            {a.pulsante}
+          </button>
+        </div>
+      ))}
       {invito && (
         <div className="riquadro evidenza">
           <h2>{invito.proprietario} ti ha scelto</h2>
@@ -401,14 +460,19 @@ export function Inventario({
           </button>
         )}
       </div>
+      {scheda !== 'voci' && (
+        <button className="link indietro" onClick={() => setScheda('voci')}>
+          ‹ Torna alle voci
+        </button>
+      )}
       {scheda === 'operatore' && operatore ? (
         <Operatore prova={operatore.prova} />
       ) : scheda === 'altri' ? (
-        <Fiducia vaultKey={vaultKey} />
+        <Fiducia vaultKey={vaultKey} mioNome={utente.nome} />
       ) : scheda === 'controllo' ? (
         <Controllo />
       ) : scheda === 'persone' ? (
-        <Persone persone={persone} stato={stato} onCambio={ricarica} />
+        <Persone persone={persone} stato={stato} onCambio={ricarica} onAnteprima={(id) => setVista({ tipo: 'anteprima', id })} />
       ) : (
         <>
           {voci === null && <p className="tenue">Apro la cassaforte…</p>}
@@ -425,15 +489,40 @@ export function Inventario({
             </div>
           )}
           {voci && voci.length > 0 && (
+            <div className="filtro" role="group" aria-label="Quali voci mostrare">
+              <button aria-pressed={filtro === 'tutte'} className={filtro === 'tutte' ? 'attiva' : ''} onClick={() => setFiltro('tutte')}>
+                Tutte ({voci.length})
+              </button>
+              <button aria-pressed={filtro === 'da-completare'} className={filtro === 'da-completare' ? 'attiva' : ''} onClick={() => setFiltro('da-completare')}>
+                Da completare ({prontezza?.daCompletare ?? 0})
+              </button>
+            </div>
+          )}
+          {voci && voci.length > 0 && filtro === 'da-completare' && prontezza?.daCompletare === 0 && (
+            <p className="esito">Tutte le voci sono complete. ✓</p>
+          )}
+          {voci && voci.length > 0 && (
             <ul className="voci">
-              {voci.map((v) => {
-                const chi = persone.filter((p) => v.contenuto.destinatari?.includes(p.id)).map((p) => p.nome);
+              {voci
+                .map((v) => ({ v, st: statoVoce(v, fornitori) }))
+                .filter(({ st }) => filtro === 'tutte' || !st.completa)
+                .map(({ v, st }) => {
+                const ids = v.tipo === 'lettera' ? (v.remota.lettera?.destinatari ?? []) : (v.contenuto.destinatari ?? []);
+                const chi = nomiDestinatari(ids, persone);
                 return (
-                  <li key={v.id}>
-                    <button className="voce" onClick={() => setVista({ tipo: 'dettaglio', id: v.id })}>
-                      <span className="etichetta">{nomeTipo(v.tipo)}</span>
+                  <li key={v.id} id={`voce-${v.id}`}>
+                    <button className="voce" onClick={() => apri(v.id)}>
+                      <span className="riga-voce">
+                        <span className="etichetta">{nomeTipo(v.tipo)}</span>
+                        {st.completa ? (
+                          <span className="spunta-voce" aria-label="Completa" title="Completa">
+                            ✓
+                          </span>
+                        ) : null}
+                      </span>
                       <span className="titolo">{v.contenuto.titolo}</span>
-                      {chi.length > 0 && <span className="tenue">Per: {chi.join(', ')}</span>}
+                      {chi && <span className="tenue">Per {chi}</span>}
+                      {!st.completa && <span className="manca">Manca: {st.manca.join(', ')}</span>}
                       <span className="dettagli">
                         {v.emergenza && <span className="pillola">Emergenza</span>}
                         {v.tipo === 'lettera' && (
@@ -459,6 +548,21 @@ export function Inventario({
             <button className="primario" onClick={() => setVista({ tipo: 'nuova' })}>
               Aggiungi una voce
             </button>
+            <button className="secondario" onClick={() => setVista({ tipo: 'lettera' })}>
+              ✉ Scrivi una lettera
+            </button>
+          </div>
+          <div className="azioni-voci">
+            {persone.length > 0 && (
+              <button className="secondario" onClick={() => setVista({ tipo: 'anteprima', id: null })}>
+                👁 Guarda con gli occhi di…
+              </button>
+            )}
+            {voci && voci.length > 0 && (
+              <button className="secondario" onClick={() => setVista({ tipo: 'fascicolo' })}>
+                Fascicolo per il notaio
+              </button>
+            )}
             {voci && voci.length > 0 && (
               <button className="secondario" onClick={() => setVista({ tipo: 'trova' })}>
                 Trova tutto
@@ -486,12 +590,34 @@ function Volonta(p: {
   const [scelti, setScelti] = useState<string[]>(p.voce.contenuto.destinatari ?? []);
   const [azione, setAzione] = useState<AzioneAccount | ''>(p.voce.contenuto.azione ?? '');
   const [emergenza, setEmergenza] = useState(p.voce.emergenza);
-  const [salvo, setSalvo] = useState(false);
-  const [fatto, setFatto] = useState(false);
-  const cambiato =
-    JSON.stringify([...scelti].sort()) !== JSON.stringify([...(p.voce.contenuto.destinatari ?? [])].sort()) ||
-    azione !== (p.voce.contenuto.azione ?? '') ||
-    emergenza !== p.voce.emergenza;
+  const [stato, setStato] = useState<'fermo' | 'salvo' | 'salvato' | 'errore'>('fermo');
+  // Ogni scelta si salva subito; i salvataggi vanno in fila, così due tocchi veloci non si sovrappongono.
+  const coda = useRef<Promise<void>>(Promise.resolve());
+  const ultimo = useRef(0);
+
+  function salva(n: { scelti: string[]; azione: AzioneAccount | ''; emergenza: boolean }, annulla: () => void) {
+    setScelti(n.scelti);
+    setAzione(n.azione);
+    setEmergenza(n.emergenza);
+    setStato('salvo');
+    const numero = ++ultimo.current;
+    coda.current = coda.current.then(async () => {
+      try {
+        const { destinatari: _d, azione: _a, ...resto } = p.voce.contenuto;
+        await p.onSalva({ ...resto, ...(n.scelti.length ? { destinatari: n.scelti } : {}), ...(n.azione ? { azione: n.azione } : {}) }, n.emergenza);
+        if (numero === ultimo.current) setStato('salvato');
+      } catch {
+        annulla();
+        setStato('errore');
+      }
+    });
+  }
+
+  // Persone di fiducia per prime: di solito sono loro a occuparsi delle pratiche.
+  const ordinate = [...p.persone].sort((a, b) => Number(b.ruolo !== 'destinatario') - Number(a.ruolo !== 'destinatario'));
+  const cosa = azione === 'cancellare' ? 'chiuderlo' : azione === 'conservare' ? 'occuparsene' : 'riceverlo';
+  const senzaPersona = !!azione && scelti.length === 0;
+  const prima = { scelti, azione, emergenza };
 
   return (
     <div className="riquadro">
@@ -504,19 +630,19 @@ function Volonta(p: {
           </button>
         </p>
       ) : (
-        <fieldset className="scelte-ruolo">
-          <legend>Chi la riceve</legend>
-          {p.persone.map((x) => (
+        <fieldset className={`scelte-ruolo ${senzaPersona ? 'da-scegliere' : ''}`}>
+          <legend>{senzaPersona ? `Chi si occuperà di ${cosa}?` : 'Chi la riceve'}</legend>
+          {senzaPersona && <p className="avviso">Scegli almeno una persona: senza, alla tua scomparsa questa voce non arriva a nessuno.</p>}
+          {ordinate.map((x) => (
             <label key={x.id} className="spunta">
               <input
                 type="checkbox"
                 checked={scelti.includes(x.id)}
-                onChange={(e) => {
-                  setFatto(false);
-                  setScelti(e.target.checked ? [...scelti, x.id] : scelti.filter((s) => s !== x.id));
-                }}
+                disabled={stato === 'salvo'}
+                onChange={(e) => salva({ ...prima, scelti: e.target.checked ? [...scelti, x.id] : scelti.filter((s) => s !== x.id) }, () => setScelti(prima.scelti))}
               />
               {x.nome}
+              {x.ruolo !== 'destinatario' && <span className="tenue"> · persona di fiducia</span>}
             </label>
           ))}
         </fieldset>
@@ -526,10 +652,8 @@ function Volonta(p: {
           Cosa fare dell'account
           <select
             value={azione}
-            onChange={(e) => {
-              setFatto(false);
-              setAzione(e.target.value as AzioneAccount | '');
-            }}
+            disabled={stato === 'salvo'}
+            onChange={(e) => salva({ ...prima, azione: e.target.value as AzioneAccount | '' }, () => setAzione(prima.azione))}
           >
             <option value="">Non ho ancora deciso</option>
             {AZIONI.map((a) => (
@@ -544,27 +668,16 @@ function Volonta(p: {
         <input
           type="checkbox"
           checked={emergenza}
-          onChange={(e) => {
-            setFatto(false);
-            setEmergenza(e.target.checked);
-          }}
+          disabled={stato === 'salvo'}
+          onChange={(e) => salva({ ...prima, emergenza: e.target.checked }, () => setEmergenza(prima.emergenza))}
         />
         Serve anche in caso di emergenza (le persone di fiducia la ricevono dopo la verifica e 72 ore d'attesa)
       </label>
-      <button
-        className="secondario"
-        disabled={!cambiato || salvo}
-        onClick={async () => {
-          setSalvo(true);
-          const { destinatari: _d, azione: _a, ...resto } = p.voce.contenuto;
-          await p.onSalva({ ...resto, ...(scelti.length ? { destinatari: scelti } : {}), ...(azione ? { azione } : {}) }, emergenza);
-          setSalvo(false);
-          setFatto(true);
-        }}
-      >
-        {salvo ? 'Salvo e preparo i pacchetti…' : 'Salva le volontà'}
-      </button>
-      {fatto && !cambiato && <p className="esito">Volontà salvate.</p>}
+      <p className={stato === 'errore' ? 'avviso' : 'stato-salvataggio'} aria-live="polite">
+        {stato === 'salvo' && 'Salvo…'}
+        {stato === 'salvato' && 'Salvato ✓'}
+        {stato === 'errore' && 'Non sono riuscito a salvare: la scelta è tornata com\'era. Riprova.'}
+      </p>
     </div>
   );
 }
@@ -618,8 +731,8 @@ function NuovaVoce(p: {
         }
       }}
     >
-      <p className="etichetta">{nomeTipo(tipo)}</p>
-      <h1>Nuova voce</h1>
+      <p className="etichetta">Nuova voce</p>
+      <h1>{nomeTipo(tipo)}</h1>
       {tipo === 'crypto' && (
         <p className="avviso">Non scrivere qui la frase di recupero o la chiave privata: indica solo dove si trovano e chi deve accedervi.</p>
       )}
@@ -789,32 +902,20 @@ function Documenti(p: {
   );
 }
 
-/** «La tua eredità digitale è pronta al …%»: un numero solo e i prossimi passi. */
-function BarraProntezza({ p }: { p: Prontezza }) {
-  const [aperta, setAperta] = useState(false);
+/** «La tua eredità digitale è pronta al …%»: un numero solo, come la batteria del telefono. */
+function BarraProntezza({ p, compatta = false }: { p: Prontezza; compatta?: boolean }) {
   return (
-    <div className="prontezza">
+    <div className={`prontezza ${compatta ? 'compatta' : ''}`}>
       <div className="prontezza-riga">
         <span>
-          La tua eredità digitale è pronta al <strong>{p.percento}%</strong>
+          {compatta ? 'Eredità digitale pronta al ' : 'La tua eredità digitale è pronta al '}
+          <strong>{p.percento}%</strong>
         </span>
-        {p.passi.length > 0 && (
-          <button className="link" aria-expanded={aperta} onClick={() => setAperta(!aperta)}>
-            {aperta ? 'Nascondi' : 'Cosa manca?'}
-          </button>
-        )}
       </div>
       <div className="prontezza-barra" role="progressbar" aria-valuenow={p.percento} aria-valuemin={0} aria-valuemax={100} aria-label="Eredità digitale pronta">
         <span style={{ width: `${p.percento}%` }} />
       </div>
-      {aperta && (
-        <ol className="prontezza-passi">
-          {p.passi.slice(0, 4).map((x) => (
-            <li key={x}>{x}</li>
-          ))}
-        </ol>
-      )}
-      {p.abbonamentiAnno > 0 && <p className="tenue">Abbonamenti in elenco: circa CHF {p.abbonamentiAnno.toLocaleString('de-CH')} all'anno.</p>}
+      {!compatta && p.abbonamentiAnno > 0 && <p className="tenue">Abbonamenti in elenco: circa CHF {p.abbonamentiAnno.toLocaleString('de-CH')} all'anno.</p>}
     </div>
   );
 }

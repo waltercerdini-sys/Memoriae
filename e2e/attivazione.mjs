@@ -48,6 +48,7 @@ async function rientra(page) {
   await page.getByRole('heading', { name: /La cassaforte di/ }).waitFor();
 }
 
+const posteDi = (to) => readFileSync(OUTBOX, 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l)).filter((x) => x.to === to).length;
 const posta = (to, re) => {
   const m = readFileSync(OUTBOX, 'utf8').trim().split('\n').map((l) => JSON.parse(l)).reverse().find((x) => x.to === to && re.test(x.text));
   if (!m) throw new Error(`Nessuna e-mail per ${to}`);
@@ -101,17 +102,16 @@ await R.page.getByRole('tab', { name: 'Voci' }).click();
 for (const [titolo, chi] of [['Lettera per Marco', 'Marco Bianchi'], ['Foto per Anna', 'Anna Verdi']]) {
   await R.page.getByRole('button', { name: new RegExp(titolo) }).click();
   await R.page.getByLabel(chi).check();
-  await R.page.getByRole('button', { name: 'Salva le volontà' }).click();
-  await R.page.getByText('Volontà salvate.').waitFor();
+  await R.page.getByText('Salvato ✓').waitFor();
   await R.page.getByRole('button', { name: "Torna all'elenco", exact: true }).click();
 }
-await R.page.getByText('Per: Marco Bianchi').waitFor();
+await R.page.getByText('Per Marco Bianchi').first().waitFor();
 // Due lettere per Marco: una da aprire subito, una nel 2040.
 async function lettera(titolo, testo, giorno) {
   await R.page.getByRole('tab', { name: 'Voci' }).click();
   await R.page.getByRole('button', { name: 'Aggiungi una voce' }).click();
   await R.page.getByRole('button', { name: /^Lettera per il futuro/ }).click();
-  await R.page.getByLabel('Per chi').selectOption({ label: 'Marco Bianchi' });
+  await R.page.getByRole('checkbox', { name: 'Marco Bianchi' }).check();
   if (giorno) await R.page.getByLabel('Giorno', { exact: true }).fill(giorno);
   else await R.page.getByRole('radio', { name: /Appena possibile/ }).check();
   await R.page.getByLabel('Titolo').fill(titolo);
@@ -124,6 +124,49 @@ await lettera('Per Marco, adesso', 'Caro Marco,\n\nsono fiera di te.', null);
 await lettera('Per i tuoi 40 anni', 'Caro Marco, oggi compi 40 anni.', '2040-05-12');
 await R.page.getByText('Si apre il 12 maggio 2040').waitFor();
 step('Rosa: due lettere per Marco, una per il 12 maggio 2040');
+
+// Una lettera per due persone: Marco e Lucia, che non è tra le persone (solo l'indirizzo e-mail).
+await R.page.getByRole('button', { name: '✉ Scrivi una lettera' }).click();
+await R.page.getByRole('heading', { name: 'Lettera per il futuro' }).waitFor();
+await R.page.getByRole('checkbox', { name: 'Marco Bianchi' }).check();
+await R.page.getByLabel('Nome', { exact: true }).fill('Lucia');
+await R.page.getByLabel('E-mail', { exact: true }).fill('lucia.prova@example.ch');
+await R.page.getByRole('button', { name: 'Aggiungi un indirizzo e-mail' }).click();
+await R.page.getByText('(lucia.prova@example.ch)').waitFor();
+await R.page.getByRole('radio', { name: /Appena possibile/ }).check();
+await R.page.getByLabel('Titolo').fill('Per voi due');
+await R.page.getByLabel('La lettera').fill('Cari Marco e Lucia, volatevi bene.');
+await R.shot('lettera-due-persone');
+await R.page.getByRole('button', { name: 'Chiudi la lettera nella cassaforte (2 persone)' }).click();
+await R.page.getByText('Lettera chiusa nella cassaforte').waitFor();
+await R.page.locator('li', { hasText: 'Per voi due' }).getByText('Per Marco Bianchi e Lucia').waitFor();
+if (posteDi('lucia.prova@example.ch') > 0) throw new Error('Lucia ha ricevuto un invito: la lettera doveva restare una sorpresa');
+await R.page.getByRole('tab', { name: 'Persone' }).click();
+await R.page.getByRole('heading', { name: 'Ricevono solo lettere' }).waitFor();
+await R.page.getByRole('tab', { name: 'Voci' }).click();
+step('Rosa: una lettera per Marco e per Lucia (solo e-mail, nessun invito)');
+
+// Prova generale: con gli occhi di Marco.
+await R.page.getByRole('button', { name: '👁 Guarda con gli occhi di…' }).click();
+await R.page.getByRole('button', { name: /^Marco Bianchi/ }).click();
+await R.page.getByRole('heading', { name: 'Con gli occhi di Marco' }).waitFor();
+await R.page.getByText('Una lettera ti aspetta').waitFor();
+await R.page.getByRole('heading', { name: 'Per voi due' }).waitFor();
+if (await R.page.getByText('Foto per Anna').count()) throw new Error('Anteprima: Marco vede una voce non sua');
+await R.shot('05-anteprima-marco');
+await R.page.getByRole('button', { name: "‹ Scegli un'altra persona" }).click();
+await R.page.getByRole('button', { name: "‹ Torna all'elenco" }).click();
+step('Rosa: prova generale con gli occhi di Marco');
+
+// Fascicolo per il notaio: si apre una pagina da stampare.
+await R.page.getByRole('button', { name: 'Fascicolo per il notaio' }).click();
+const [fascicolo] = await Promise.all([R.page.context().waitForEvent('page'), R.page.getByRole('button', { name: 'Prepara il fascicolo (PDF)' }).click()]);
+await fascicolo.getByRole('heading', { name: 'Eredità digitale di Rosa Bianchi' }).waitFor();
+await fascicolo.getByText('Non è un testamento e non lo sostituisce', { exact: false }).waitFor();
+await fascicolo.screenshot({ path: join(OUT, 'attivazione-rosa-06-fascicolo.png'), fullPage: true });
+await fascicolo.close();
+await R.page.getByRole('button', { name: "‹ Torna all'elenco" }).click();
+step('Rosa: fascicolo per il notaio pronto da stampare');
 await R.page.getByRole('tab', { name: 'Sono qui' }).click();
 await R.page.getByRole('heading', { name: 'Controllo periodico' }).waitFor();
 await R.shot('01-sono-qui');
@@ -175,6 +218,19 @@ await A.page.getByText('Pacchetti consegnati a: Marco Bianchi').waitFor();
 await A.shot('03-aperta');
 step('Anna: cassaforte aperta nel suo browser, pacchetto di Marco consegnato');
 
+// I primi 30 giorni: spunte condivise e lettere pronte.
+await A.page.getByRole('heading', { name: 'I primi 30 giorni' }).waitFor();
+const passo = A.page.locator('.passi-primi-giorni li', { hasText: "Avvisare l'AVS" });
+const [letteraAvs] = await Promise.all([A.page.context().waitForEvent('page'), passo.getByRole('button', { name: 'Prepara la lettera' }).click()]);
+await letteraAvs.getByText('Oggetto: Comunicazione di decesso e richiesta di rendite per superstiti').waitFor();
+await letteraAvs.getByText('Rosa Bianchi', { exact: false }).first().waitFor();
+await letteraAvs.screenshot({ path: join(OUT, 'attivazione-anna-04-lettera-avs.png'), fullPage: true });
+await letteraAvs.close();
+await passo.getByRole('checkbox').check();
+await passo.getByText(/Fatto \(Anna Verdi/).waitFor();
+await A.shot('04-primi-giorni');
+step('Anna: «I primi 30 giorni», lettera per l\'AVS pronta e passo segnato come fatto');
+
 await rientra(M.page);
 await M.page.getByRole('tab', { name: 'Per gli altri' }).click();
 await M.page.getByRole('heading', { name: 'Hai ricevuto' }).waitFor();
@@ -188,6 +244,15 @@ if (await M.page.getByText('oggi compi 40 anni').count()) throw new Error('Lette
 if (await M.page.getByText('Foto per Anna').count()) throw new Error('Marco vede una voce non sua');
 await M.shot('01-ricevuto');
 step('Marco: ha aperto la sua voce e la lettera «subito»; quella del 2040 resta chiusa');
+
+// Le spunte sono condivise: Marco vede quello che ha fatto Anna, e segna la sua voce.
+await M.page.locator('.passi-primi-giorni li', { hasText: "Avvisare l'AVS" }).getByText(/Fatto \(Anna Verdi/).waitFor();
+await M.page.getByRole('heading', { name: 'Per voi due' }).waitFor();
+const voceMarco = M.page.locator('li.voce', { hasText: 'Lettera per Marco' });
+await voceMarco.getByRole('checkbox').check();
+await M.page.getByText('Tutto sistemato. ✓').waitFor();
+await M.shot('02-fatto');
+step('Marco: vede il passo fatto da Anna, la lettera per due e segna la sua voce come sistemata');
 
 await browser.close();
 console.log('Attivazione: prova superata');

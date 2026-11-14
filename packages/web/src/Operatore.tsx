@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api, type CasoOperatore } from './api';
+import { api, type SchedaDaRicontrollare, type CasoOperatore } from './api';
 import { salvaBytes } from './apertura';
 
 const data = (s: string) => new Date(s).toLocaleString('it-CH', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -89,6 +89,7 @@ export function Operatore({ prova }: { prova: boolean }) {
           </div>
         </div>
       ))}
+      <Catalogo />
       {altri.length > 0 && (
         <>
           <h2>Storico</h2>
@@ -108,5 +109,58 @@ export function Operatore({ prova }: { prova: boolean }) {
         </>
       )}
     </div>
+  );
+}
+
+const giorno = (s: string) => new Date(s).toLocaleDateString('it-CH', { day: 'numeric', month: 'long', year: 'numeric' });
+
+/** Schede del catalogo la cui pagina ufficiale è cambiata o non risponde: le ricontrolla l'operatore. */
+function Catalogo() {
+  const [schede, setSchede] = useState<SchedaDaRicontrollare[] | null>(null);
+  const [errore, setErrore] = useState<string | null>(null);
+  const carica = useCallback(() => {
+    api.catalogoDaRicontrollare().then((r) => setSchede(r.daRicontrollare)).catch((e: Error) => setErrore(e.message));
+  }, []);
+  useEffect(carica, [carica]);
+  if (!schede) return null;
+  return (
+    <>
+      <h2>Catalogo da ricontrollare ({schede.length})</h2>
+      {schede.length === 0 && <p className="tenue">Tutte le pagine ufficiali sono come all'ultima verifica.</p>}
+      {schede.map((x) => (
+        <div key={x.slug} className="riquadro">
+          <p>
+            <strong>{x.nome}</strong>{' '}
+            <span className="pillola chiara">{x.stato === 'irraggiungibile' ? 'Pagina non raggiungibile' : 'Pagina cambiata'}</span>
+          </p>
+          <p className="tenue">
+            {x.controllataIl && `Controllo del ${giorno(x.controllataIl)}. `}
+            {x.verificatoIl && `Ultima verifica: ${giorno(x.verificatoIl)}.`}
+          </p>
+          {x.fonte && (
+            <p>
+              <a href={x.fonte} target="_blank" rel="noreferrer noopener">
+                Apri la pagina ufficiale
+              </a>
+            </p>
+          )}
+          <p className="tenue">
+            Confronta la pagina con le istruzioni della scheda. Se le istruzioni vanno cambiate, segnalalo a chi cura il catalogo prima di confermare.
+          </p>
+          <button
+            className="secondario"
+            onClick={() =>
+              api
+                .schedaRicontrollata(x.slug)
+                .then(carica)
+                .catch((e: Error) => setErrore(e.message))
+            }
+          >
+            Ricontrollata: le istruzioni sono ancora giuste
+          </button>
+        </div>
+      ))}
+      {errore && <p className="avviso">{errore}</p>}
+    </>
   );
 }

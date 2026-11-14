@@ -622,3 +622,156 @@ textarea.carta {
   margin-bottom: 0.5rem;
   font-size: 1.05rem;
 }
+
+/* Elenco: spunte, cosa manca, filtro, ritorno all'ultima voce */
+.riga-voce {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.spunta-voce {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--accento);
+  color: #fff;
+  font-weight: 800;
+  font-size: 1.05rem;
+  flex: none;
+}
+.voce .manca {
+  color: var(--avviso-testo);
+  font-weight: 600;
+}
+.filtro {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.filtro button {
+  background: #fff;
+  border: 2px solid var(--sfondo2);
+  color: var(--testo);
+  font-weight: 700;
+  min-height: 48px;
+  padding: 6px 16px;
+  border-radius: 999px;
+}
+.filtro button.attiva {
+  background: var(--accento);
+  border-color: var(--accento);
+  color: #fff;
+}
+.voci li.appena .voce {
+  border-color: var(--accento);
+  box-shadow: 0 0 0 4px rgba(47, 107, 87, 0.25);
+  transition: box-shadow 0.4s ease, border-color 0.4s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .voci li.appena .voce {
+    transition: none;
+  }
+}
+.avviso-azione {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  background: var(--avviso-sfondo);
+  color: var(--avviso-testo);
+}
+.avviso-azione p {
+  margin: 0;
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+.prontezza.compatta {
+  font-size: 0.9rem;
+  gap: 4px;
+  margin: 0 0 4px;
+}
+.prontezza.compatta .prontezza-barra {
+  height: 8px;
+}
+.stato-salvataggio {
+  min-height: 1.5em;
+  margin: 0;
+  color: var(--accento);
+  font-weight: 700;
+}
+.scelte-ruolo.da-scegliere {
+  border-color: var(--avviso-testo);
+}
+.pulsante-file {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+.pulsante-file input[type='file'] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* I primi 30 giorni */
+.primi-giorni h2 {
+  margin: 0;
+}
+.data-decesso {
+  max-width: 18rem;
+}
+.passi-primi-giorni {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.passi-primi-giorni li {
+  background: #fff;
+  border: 2px solid var(--sfondo2);
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.passi-primi-giorni li.fatto {
+  border-color: var(--accento);
+}
+.passi-primi-giorni li.fatto h3::before {
+  content: '✓ ';
+  color: var(--accento);
+}
+.passi-primi-giorni h3 {
+  font-size: 1.1rem;
+}
+.passi-primi-giorni p {
+  margin: 0;
+}
+.passi-primi-giorni .quando {
+  font-weight: 700;
+  color: var(--accento);
+  font-size: 0.9rem;
+}
+.passi-primi-giorni .quando.scaduto {
+  color: var(--pericolo);
+}
+
+/* Prova generale */
+.anteprima-banner h1 {
+  margin: 2px 0 6px;
+}
+.anteprima {
+  border: 2px dashed var(--accento);
+  border-radius: var(--raggio);
+  padding: 12px;
+}

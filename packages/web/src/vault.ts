@@ -187,7 +187,7 @@ async function caricaDocumenti(itemId: string, itemKey: Uint8Array, files: File[
 export async function aggiungiVoce(
   vaultKey: Uint8Array,
   dati: { tipo: TipoVoce; emergenza: boolean; titolo: string; note: string; fornitore?: string; files?: File[]; extra?: Partial<ContenutoVoce>; lettera?: MetaLettera },
-): Promise<void> {
+): Promise<string> {
   const id = crypto.randomUUID();
   const files = dati.files ?? [];
   const meta = files.map(metaFile);
@@ -201,6 +201,7 @@ export async function aggiungiVoce(
   const { item, itemKey } = await encryptItem(vaultKey, id, utf8(JSON.stringify(contenuto)));
   await api.creaVoce({ id, tipo: dati.tipo, emergenza: dati.emergenza, chiaveVoceCifrata: item.wrappedItemKey, contenuto: item.content, lettera: dati.lettera });
   await caricaDocumenti(id, itemKey, files, meta);
+  return id;
 }
 
 /** Aggiunge documenti a una voce esistente. */
@@ -219,6 +220,23 @@ export async function aggiungiDocumenti(
   await caricaDocumenti(voce.id, k, files, meta);
   const { file: _vecchio, ...resto } = voce.contenuto;
   await aggiornaVoce(vaultKey, voce, { ...resto, files: [...attuali, ...meta], ...(modifica?.(meta) ?? {}) }, voce.emergenza);
+}
+
+/** Sostituisce un documento con un altro in un passo solo (per esempio la chiave del contatto erede). */
+export async function sostituisciDocumento(
+  vaultKey: Uint8Array,
+  voce: Voce,
+  vecchioId: string,
+  file: File,
+  modifica?: (nuovo: FileVoce) => Partial<ContenutoVoce>,
+): Promise<void> {
+  const k = await unwrapItemKey(vaultKey, comeEncrypted(voce.remota));
+  const [meta] = [file].map(metaFile);
+  await caricaDocumenti(voce.id, k, [file], [meta!]);
+  const { file: _vecchio, ...resto } = voce.contenuto;
+  const files = documentiDi(voce.id, voce.contenuto).map((f) => (f.id === vecchioId ? meta! : f));
+  await aggiornaVoce(vaultKey, voce, { ...resto, files, ...(modifica?.(meta!) ?? {}) }, voce.emergenza);
+  await api.eliminaFile(voce.id, vecchioId);
 }
 
 /** Toglie un documento da una voce. */

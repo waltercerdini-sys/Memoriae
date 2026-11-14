@@ -4,7 +4,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Database } from '../db/client';
-import { activationCases, auditLog, items, persons, recipientPackages, users, vaults } from '../db/schema';
+import { activationCases, auditLog, heirProgress, items, persons, providers, recipientPackages, users, vaults } from '../db/schema';
 import {
   ActivationError,
   approve,
@@ -343,6 +343,35 @@ export async function activationRoutes(
 
   app.get('/v1/operatore', { preHandler: requireOperator }, async () => ({ operatore: true, prova: modalitaProva }));
 
+  /** Catalogo: schede la cui pagina ufficiale è cambiata o non risponde. */
+  app.get('/v1/operatore/catalogo', { preHandler: requireOperator }, async () => {
+    const rows = await db.select().from(providers).where(eq(providers.needsReview, true)).orderBy(asc(providers.name));
+    return {
+      daRicontrollare: rows.map((p) => ({
+        slug: p.slug,
+        nome: p.name,
+        fonte: p.sourceUrl,
+        stato: p.sourceStatus,
+        controllataIl: p.sourceCheckedAt,
+        verificatoIl: p.verifiedAt,
+      })),
+    };
+  });
+
+  app.post('/v1/operatore/catalogo/:slug/ricontrollato', { preHandler: requireOperator }, async (req, reply) => {
+    const q = z.object({ slug: z.string().regex(/^[a-z0-9-]{1,60}$/) }).safeParse(req.params);
+    if (!q.success) return reply.code(404).send({ errore: 'Scheda non trovata' });
+    const [p] = await db.select().from(providers).where(eq(providers.slug, q.data.slug)).limit(1);
+    if (!p) return reply.code(404).send({ errore: 'Scheda non trovata' });
+    const now = new Date();
+    await db
+      .update(providers)
+      .set({ needsReview: false, verifiedAt: now, sourceHash: p.sourcePendingHash ?? p.sourceHash, sourcePendingHash: null, sourceStatus: p.sourceStatus === 'irraggiungibile' ? p.sourceStatus : 'invariata', updatedAt: now })
+      .where(eq(providers.id, p.id));
+    await db.insert(auditLog).values({ actor: req.user!.id, action: 'catalogo-ricontrollato', details: { scheda: p.slug } });
+    return { ok: true };
+  });
+
   app.get('/v1/operatore/casi', { preHandler: requireOperator }, async (req) => {
     const rows = await db
       .select({ c: activationCases, richiedente: persons.name, richiedenteEmail: persons.email, ruolo: persons.role })
@@ -544,6 +573,60 @@ export async function activationRoutes(
     return sendItemFile(db, blobs, itemId, fileId, reply);
   }
 
+
+  // ---- Avanzamento delle pratiche dopo l'apertura ------------------------------
+
+  const ChiaveFatto = z.object({
+    chiave: z.string().regex(/^(voce:[0-9a-f-]{36}|passo:[a-z0-9-]{1,40})$/),
+    fatto: z.boolean(),
+  });
+
+  async function fatti(vaultId: string) {
+    const rows = await db.select().from(heirProgress).where(eq(heirProgress.vaultId, vaultId));
+    return { fatti: rows.map((r) => ({ chiave: r.key, da: r.doneByName, il: r.doneAt })) };
+  }
+
+  async function segnaFatto(vaultId: string, scope: ReleaseScope, req: FastifyRequest, reply: FastifyReply) {
+    const body = ChiaveFatto.safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ errore: 'Richiesta non valida' });
+    const { chiave, fatto } = body.data;
+    if (chiave.startsWith('voce:')) {
+      const [it] = await db.select().from(items).where(and(eq(items.id, chiave.slice(5)), eq(items.vaultId, vaultId))).limit(1);
+      if (!it || (scope === 'emergenza' && !it.isEmergency)) return reply.code(404).send({ errore: 'Voce non trovata' });
+    }
+    if (fatto) {
+      await db
+        .insert(heirProgress)
+        .values({ vaultId, key: chiave, doneBy: req.user!.id, doneByName: req.user!.name })
+        .onConflictDoNothing();
+    } else {
+      await db.delete(heirProgress).where(and(eq(heirProgress.vaultId, vaultId), eq(heirProgress.key, chiave)));
+    }
+    return fatti(vaultId);
+  }
+
+  app.get('/v1/fiducia/casi/:id/fatti', { preHandler: auth }, async (req, reply) => {
+    const r = await releasedForFiduciary(req, reply);
+    if (!r) return;
+    return fatti(r.c.vaultId);
+  });
+  app.put('/v1/fiducia/casi/:id/fatti', { preHandler: auth }, async (req, reply) => {
+    const r = await releasedForFiduciary(req, reply);
+    if (!r) return;
+    return segnaFatto(r.c.vaultId, r.c.scope, req, reply);
+  });
+  app.get('/v1/ricevuti/:id/fatti', { preHandler: auth }, async (req, reply) => {
+    const p = Uuid.safeParse(req.params);
+    const row = p.success ? await myDelivery(req.user!.id, p.data.id) : null;
+    if (!row) return reply.code(404).send({ errore: 'Non trovato' });
+    return fatti(row.k.vaultId);
+  });
+  app.put('/v1/ricevuti/:id/fatti', { preHandler: auth }, async (req, reply) => {
+    const p = Uuid.safeParse(req.params);
+    const row = p.success ? await myDelivery(req.user!.id, p.data.id) : null;
+    if (!row) return reply.code(404).send({ errore: 'Non trovato' });
+    return segnaFatto(row.k.vaultId, row.k.scope, req, reply);
+  });
 
   app.get('/v1/fiducia/casi/:id/voci', { preHandler: auth }, async (req, reply) => {
     const r = await releasedForFiduciary(req, reply);
