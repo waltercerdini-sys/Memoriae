@@ -559,3 +559,49 @@ a {
 .importo input {
   width: 8em;
 }
+
+/* Lettere nel tempo */
+.foglio-lettera {
+  background: #fffdf7;
+  color: #2b2a26;
+  border: 1px solid #e6dfcc;
+  border-radius: 6px;
+  padding: 28px 26px;
+  box-shadow: 0 10px 24px -18px rgba(35, 54, 47, 0.5);
+  font-family: 'Domine', Georgia, serif;
+  line-height: 1.7;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.foglio-lettera h2 {
+  margin: 0;
+}
+
+.foglio-lettera p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.foglio-lettera .firma {
+  text-align: right;
+  font-style: italic;
+}
+
+textarea.carta {
+  font-family: 'Domine', Georgia, serif;
+  line-height: 1.7;
+  background: #fffdf7;
+}
+
+.lettera-chiusa {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 0;
+}
+
+.lettera-chiusa .titolo::before {
+  content: '✉ ';
+}

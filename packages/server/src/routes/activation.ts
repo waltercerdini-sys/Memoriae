@@ -66,6 +66,10 @@ const Note = z.object({ nota: z.string().trim().max(2000).optional() });
 const Delivery = z.object({ destinatarioId: z.string().uuid(), interno: z.string().min(1).max(200_000) });
 
 type CaseRow = typeof activationCases.$inferSelect;
+
+/** Una lettera si apre il giorno scelto (o subito, se non c'è una data). */
+export const letteraChiusa = (it: { type: string; deliverAt: Date | null }, now: Date) =>
+  it.type === 'lettera' && !!it.deliverAt && it.deliverAt.getTime() > now.getTime();
 const asDomain = (c: CaseRow): ActivationCase => ({
   scope: c.scope,
   status: c.status,
@@ -519,12 +523,24 @@ export async function activationRoutes(
     const where = scope === 'emergenza' ? and(eq(items.vaultId, vaultId), eq(items.isEmergency, true)) : eq(items.vaultId, vaultId);
     const rows = await db.select().from(items).where(where).orderBy(asc(items.createdAt));
     const files = await filesByItem(db, rows.map((r) => r.id));
-    return rows.map((r) => ({ id: r.id, tipo: r.type, contenuto: r.content, file: files.get(r.id) ?? [] }));
+    const now = new Date();
+    return rows.map((r) => {
+      if (r.type !== 'lettera') return { id: r.id, tipo: r.type, contenuto: r.content, file: files.get(r.id) ?? [] };
+      // Le lettere restano chiuse fino al giorno scelto: prima si sa solo che esistono e quando arriveranno.
+      const chiusa = letteraChiusa(r, now);
+      return {
+        id: r.id,
+        tipo: r.type,
+        contenuto: chiusa ? null : r.content,
+        file: chiusa ? [] : (files.get(r.id) ?? []),
+        lettera: { consegnaIl: r.deliverAt, aperta: !chiusa },
+      };
+    });
   }
 
   async function sharedFile(vaultId: string, scope: ReleaseScope, itemId: string, fileId: string, reply: FastifyReply) {
     const [it] = await db.select().from(items).where(and(eq(items.id, itemId), eq(items.vaultId, vaultId))).limit(1);
-    if (!it || (scope === 'emergenza' && !it.isEmergency)) return reply.code(404).send({ errore: 'File non trovato' });
+    if (!it || (scope === 'emergenza' && !it.isEmergency) || letteraChiusa(it, new Date())) return reply.code(404).send({ errore: 'File non trovato' });
     return sendItemFile(db, blobs, itemId, fileId, reply);
   }
 

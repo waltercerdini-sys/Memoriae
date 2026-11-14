@@ -21,7 +21,7 @@ import {
   type EncryptedItem,
   type Envelope,
 } from '@memoriae/crypto';
-import { api, type Accesso, type CassaforteRemota, type TipoVoce, type VoceRemota } from './api';
+import { api, type Accesso, type MetaLettera, type CassaforteRemota, type TipoVoce, type VoceRemota } from './api';
 
 /** Contenuto di una voce come lo vede l'utente (esiste solo nel browser). */
 export type AzioneAccount = 'conservare' | 'trasmettere' | 'cancellare';
@@ -184,7 +184,7 @@ async function caricaDocumenti(itemId: string, itemKey: Uint8Array, files: File[
 
 export async function aggiungiVoce(
   vaultKey: Uint8Array,
-  dati: { tipo: TipoVoce; emergenza: boolean; titolo: string; note: string; fornitore?: string; files?: File[]; extra?: Partial<ContenutoVoce> },
+  dati: { tipo: TipoVoce; emergenza: boolean; titolo: string; note: string; fornitore?: string; files?: File[]; extra?: Partial<ContenutoVoce>; lettera?: MetaLettera },
 ): Promise<void> {
   const id = crypto.randomUUID();
   const files = dati.files ?? [];
@@ -197,7 +197,7 @@ export async function aggiungiVoce(
     ...(dati.extra ?? {}),
   };
   const { item, itemKey } = await encryptItem(vaultKey, id, utf8(JSON.stringify(contenuto)));
-  await api.creaVoce({ id, tipo: dati.tipo, emergenza: dati.emergenza, chiaveVoceCifrata: item.wrappedItemKey, contenuto: item.content });
+  await api.creaVoce({ id, tipo: dati.tipo, emergenza: dati.emergenza, chiaveVoceCifrata: item.wrappedItemKey, contenuto: item.content, lettera: dati.lettera });
   await caricaDocumenti(id, itemKey, files, meta);
 }
 

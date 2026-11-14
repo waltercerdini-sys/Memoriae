@@ -2,7 +2,7 @@ import { and, asc, eq, inArray } from 'drizzle-orm';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import type { Database } from '../db/client';
-import { auditLog, checkinSchedules, itemFiles, items, passkeyCredentials, users, vaultKeyWraps, vaults } from '../db/schema';
+import { auditLog, checkinSchedules, itemFiles, items, persons, passkeyCredentials, users, vaultKeyWraps, vaults } from '../db/schema';
 import { blobKey, type BlobStore } from '../storage/blobs';
 import { requireWritablePlan } from '../payments/subscriptions';
 import { requireUser } from './auth';
@@ -48,15 +48,18 @@ const ReplaceAccess = z.object({
   chiaveCifrata: Envelope,
 });
 
-const ItemType = z.enum(['account', 'documento', 'cartella', 'istruzione', 'crypto', 'dispositivo']);
+const ItemType = z.enum(['account', 'documento', 'cartella', 'istruzione', 'crypto', 'dispositivo', 'lettera']);
+/** Per le lettere: a chi va e da quando si può leggere (null = appena possibile dopo l'apertura). */
+const Lettera = z.object({ destinatarioId: z.string().uuid(), consegnaIl: z.string().datetime({ offset: true }).nullable() });
 const CreateItem = z.object({
   id: z.string().uuid(),
   tipo: ItemType,
   emergenza: z.boolean().default(false),
   chiaveVoceCifrata: Envelope,
   contenuto: Envelope,
+  lettera: Lettera.optional(),
 });
-const UpdateItem = z.object({ contenuto: Envelope.optional(), emergenza: z.boolean().optional() });
+const UpdateItem = z.object({ contenuto: Envelope.optional(), emergenza: z.boolean().optional(), lettera: Lettera.optional() });
 const IdParam = z.object({ id: z.string().uuid() });
 
 export interface VaultRouteOptions {
@@ -196,6 +199,7 @@ export async function vaultRoutes(app: FastifyInstance, opts: VaultRouteOptions)
         chiaveVoceCifrata: r.wrappedItemKey,
         contenuto: r.content,
         file: files.get(r.id) ?? [],
+        ...(r.type === 'lettera' ? { lettera: { destinatarioId: r.letterRecipientId, consegnaIl: r.deliverAt } } : {}),
         creataIl: r.createdAt,
         modificataIl: r.updatedAt,
       })),
@@ -207,7 +211,10 @@ export async function vaultRoutes(app: FastifyInstance, opts: VaultRouteOptions)
     if (!body.success) return reply.code(400).send({ errore: 'Voce non valida' });
     const v = await ownVault(req.user!.id);
     if (!v) return reply.code(404).send({ errore: 'Nessuna cassaforte' });
+    if ((body.data.tipo === 'lettera') !== !!body.data.lettera) return reply.code(400).send({ errore: 'Una lettera ha bisogno di destinatario e data' });
+    if (body.data.lettera && !(await ownPerson(v.id, body.data.lettera.destinatarioId))) return reply.code(400).send({ errore: 'Destinatario non trovato' });
     await db.insert(items).values({
+      ...(body.data.lettera ? letterColumns(body.data.lettera) : {}),
       id: body.data.id,
       vaultId: v.id,
       type: body.data.tipo,
@@ -217,6 +224,19 @@ export async function vaultRoutes(app: FastifyInstance, opts: VaultRouteOptions)
     });
     await log(req.user!.id, 'voce-creata', v.id, { voce: body.data.id, tipo: body.data.tipo });
     return reply.code(201).send({ id: body.data.id });
+  });
+
+  async function ownPerson(vaultId: string, personId: string) {
+    const [p] = await db.select({ id: persons.id }).from(persons).where(and(eq(persons.id, personId), eq(persons.vaultId, vaultId))).limit(1);
+    return p ?? null;
+  }
+
+  const letterColumns = (l: z.infer<typeof Lettera>) => ({
+    letterRecipientId: l.destinatarioId,
+    deliverAt: l.consegnaIl ? new Date(l.consegnaIl) : null,
+    letterNotifiedAt: null,
+    // Una lettera non fa mai parte dell'emergenza.
+    isEmergency: false,
   });
 
   async function ownItem(userId: string, itemId: string) {
@@ -232,11 +252,13 @@ export async function vaultRoutes(app: FastifyInstance, opts: VaultRouteOptions)
     if (!p.success || !body.success) return reply.code(400).send({ errore: 'Richiesta non valida' });
     const found = await ownItem(req.user!.id, p.data.id);
     if (!found) return reply.code(404).send({ errore: 'Voce non trovata' });
+    if (body.data.lettera && !(await ownPerson(found.vault.id, body.data.lettera.destinatarioId))) return reply.code(400).send({ errore: 'Destinatario non trovato' });
     await db
       .update(items)
       .set({
         ...(body.data.contenuto ? { content: body.data.contenuto } : {}),
-        ...(body.data.emergenza !== undefined ? { isEmergency: body.data.emergenza } : {}),
+        ...(body.data.emergenza !== undefined && found.item.type !== 'lettera' ? { isEmergency: body.data.emergenza } : {}),
+        ...(body.data.lettera && found.item.type === 'lettera' ? letterColumns(body.data.lettera) : {}),
         updatedAt: new Date(),
       })
       .where(eq(items.id, p.data.id));

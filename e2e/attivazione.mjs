@@ -106,6 +106,24 @@ for (const [titolo, chi] of [['Lettera per Marco', 'Marco Bianchi'], ['Foto per 
   await R.page.getByRole('button', { name: "Torna all'elenco" }).click();
 }
 await R.page.getByText('Per: Marco Bianchi').waitFor();
+// Due lettere per Marco: una da aprire subito, una nel 2040.
+async function lettera(titolo, testo, giorno) {
+  await R.page.getByRole('tab', { name: 'Voci' }).click();
+  await R.page.getByRole('button', { name: 'Aggiungi una voce' }).click();
+  await R.page.getByRole('button', { name: /^Lettera per il futuro/ }).click();
+  await R.page.getByLabel('Per chi').selectOption({ label: 'Marco Bianchi' });
+  if (giorno) await R.page.getByLabel('Giorno', { exact: true }).fill(giorno);
+  else await R.page.getByRole('radio', { name: /Appena possibile/ }).check();
+  await R.page.getByLabel('Titolo').fill(titolo);
+  await R.page.getByLabel('La lettera').fill(testo);
+  await R.shot(`lettera-${giorno ? 'data' : 'subito'}`);
+  await R.page.getByRole('button', { name: 'Chiudi la lettera nella cassaforte' }).click();
+  await R.page.getByText('Lettera chiusa nella cassaforte').waitFor();
+}
+await lettera('Per Marco, adesso', 'Caro Marco,\n\nsono fiera di te.', null);
+await lettera('Per i tuoi 40 anni', 'Caro Marco, oggi compi 40 anni.', '2040-05-12');
+await R.page.getByText('Si apre il 12 maggio 2040').waitFor();
+step('Rosa: due lettere per Marco, una per il 12 maggio 2040');
 await R.page.getByRole('tab', { name: 'Sono qui' }).click();
 await R.page.getByRole('heading', { name: 'Controllo periodico' }).waitFor();
 await R.shot('01-sono-qui');
@@ -162,9 +180,14 @@ await M.page.getByRole('tab', { name: 'Per gli altri' }).click();
 await M.page.getByRole('heading', { name: 'Hai ricevuto' }).waitFor();
 await M.page.getByRole('button', { name: 'Apri', exact: true }).click();
 await M.page.getByText('Lettera per Marco').waitFor();
+await M.page.getByRole('heading', { name: 'Per Marco, adesso' }).waitFor();
+await M.page.getByText('sono fiera di te.').waitFor();
+await M.page.getByText('Una lettera ti aspetta').waitFor();
+await M.page.getByText('Si aprirà il 12 maggio 2040').waitFor();
+if (await M.page.getByText('oggi compi 40 anni').count()) throw new Error('Lettera aperta prima del giorno');
 if (await M.page.getByText('Foto per Anna').count()) throw new Error('Marco vede una voce non sua');
 await M.shot('01-ricevuto');
-step('Marco: ha aperto solo la sua voce');
+step('Marco: ha aperto la sua voce e la lettera «subito»; quella del 2040 resta chiusa');
 
 await browser.close();
 console.log('Attivazione: prova superata');

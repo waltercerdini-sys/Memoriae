@@ -25,6 +25,9 @@ export interface VoceAperta {
   /** Documenti presenti davvero sul server (con nome e tipo dal contenuto cifrato). */
   documenti: FileVoce[];
   itemKey: Uint8Array;
+  tipo: string;
+  /** Lettera ancora chiusa: la data in cui si aprirà. */
+  inArrivo?: string;
 }
 
 export interface EsitoApertura {
@@ -54,10 +57,14 @@ async function apriVoci(voci: VoceCondivisa[], chiavi: PackageItemKey[]): Promis
   for (const k of chiavi) {
     const v = voci.find((x) => x.id === k.itemId);
     if (!v) continue; // voce cancellata dopo l'ultima preparazione
+    if (!v.contenuto) {
+      out.push({ id: v.id, tipo: v.tipo, contenuto: { titolo: 'Lettera', note: '' }, documenti: [], itemKey: k.itemKey, inArrivo: v.lettera?.consegnaIl ?? undefined });
+      continue;
+    }
     const plain = await decryptItem(k.itemKey, { itemId: v.id, wrappedItemKey: v.contenuto, content: v.contenuto });
     const contenuto = JSON.parse(fromUtf8(plain)) as ContenutoVoce;
     const presenti = new Set(v.file.map((f) => f.id));
-    out.push({ id: v.id, contenuto, documenti: documentiDi(v.id, contenuto).filter((f) => presenti.has(f.id)), itemKey: k.itemKey });
+    out.push({ id: v.id, tipo: v.tipo, contenuto, documenti: documentiDi(v.id, contenuto).filter((f) => presenti.has(f.id)), itemKey: k.itemKey });
   }
   return out;
 }

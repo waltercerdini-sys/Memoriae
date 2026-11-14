@@ -40,7 +40,13 @@ export interface CassaforteRemota {
   accessi: Accesso[];
 }
 
-export type TipoVoce = 'account' | 'documento' | 'cartella' | 'istruzione' | 'crypto' | 'dispositivo';
+export type TipoVoce = 'account' | 'documento' | 'cartella' | 'istruzione' | 'crypto' | 'dispositivo' | 'lettera';
+
+/** Lettera nel tempo: a chi va e da quando si può leggere (null = appena possibile dopo l'apertura). */
+export interface MetaLettera {
+  destinatarioId: string;
+  consegnaIl: string | null;
+}
 
 export interface VoceRemota {
   id: string;
@@ -50,6 +56,7 @@ export interface VoceRemota {
   contenuto: Envelope;
   /** File cifrati della voce (id e dimensione; il nome è nel contenuto cifrato). */
   file: { id: string; byte: number }[];
+  lettera?: { destinatarioId: string | null; consegnaIl: string | null };
   creataIl: string;
   modificataIl: string;
 }
@@ -125,8 +132,10 @@ export interface CassaforteAffidata {
 export interface VoceCondivisa {
   id: string;
   tipo: TipoVoce;
-  contenuto: Envelope;
+  /** null: lettera ancora chiusa (si apre il giorno indicato). */
+  contenuto: Envelope | null;
   file: { id: string; byte: number }[];
+  lettera?: { consegnaIl: string | null; aperta: boolean };
 }
 
 export interface DatiRilascio {
@@ -214,9 +223,9 @@ export const api = {
   recuperoCompleta: (challengeId: string, risposta: unknown, verificaRecupero: string) =>
     call<{ utente: Utente; credentialId: string }>('POST', '/v1/recupero/completa', { challengeId, risposta, verificaRecupero }),
   voci: () => call<{ voci: VoceRemota[] }>('GET', '/v1/cassaforte/voci'),
-  creaVoce: (v: { id: string; tipo: TipoVoce; emergenza: boolean; chiaveVoceCifrata: Envelope; contenuto: Envelope }) =>
+  creaVoce: (v: { id: string; tipo: TipoVoce; emergenza: boolean; chiaveVoceCifrata: Envelope; contenuto: Envelope; lettera?: MetaLettera }) =>
     call<{ id: string }>('POST', '/v1/cassaforte/voci', v),
-  modificaVoce: (id: string, dati: { contenuto?: Envelope; emergenza?: boolean }) => call<{ ok: true }>('PATCH', `/v1/cassaforte/voci/${id}`, dati),
+  modificaVoce: (id: string, dati: { contenuto?: Envelope; emergenza?: boolean; lettera?: MetaLettera }) => call<{ ok: true }>('PATCH', `/v1/cassaforte/voci/${id}`, dati),
   persone: () => call<{ persone: Persona[] }>('GET', '/v1/cassaforte/persone'),
   aggiungiPersona: (p: { id: string; ruolo: Ruolo; nome: string; email?: string }) => call<{ id: string }>('POST', '/v1/cassaforte/persone', p),
   rimuoviPersona: (id: string) => call<{ ok: true }>('DELETE', `/v1/cassaforte/persone/${id}`),

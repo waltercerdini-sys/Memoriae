@@ -128,6 +128,14 @@ svizzeri) diventano voci dell'inventario, divise per categoria; per gli abboname
 In cima all'inventario un indicatore dice quanto è pronta l'eredità digitale e quali sono i prossimi passi.
 La prova `node e2e/trova.mjs` controlla anche che nessuna password parta verso il server.
 
+## Lettere nel tempo
+
+Una lettera (testo e, se si vuole, foto, audio o video) per una persona, da aprire dopo la scomparsa del proprietario:
+subito con l'apertura oppure in un giorno scelto (i 18 anni di un nipote, un matrimonio). La lettera è cifrata come ogni voce
+e arriva al destinatario nel suo pacchetto. Il server conosce solo destinatario e data: fino a quel giorno trattiene il
+contenuto (nemmeno la persona di fiducia può leggerla prima) e quel giorno manda l'avviso. Se il destinatario non ha un
+account, l'avviso va alle persone di fiducia, che gliela consegnano.
+
 ## Catalogo dei servizi
 
 Per ogni servizio (Apple, Google, Microsoft, Facebook, PayPal, Bitwarden, SwissID, TWINT, PostFinance, UBS,

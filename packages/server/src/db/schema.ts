@@ -127,7 +127,7 @@ export const vaultKeyWraps = pgTable('vault_key_wraps', {
   createdAt: createdAt(),
 }, (t) => [index('vault_key_wraps_vault_idx').on(t.vaultId)]);
 
-export const itemTypeEnum = pgEnum('item_type', ['account', 'documento', 'cartella', 'istruzione', 'crypto', 'dispositivo']);
+export const itemTypeEnum = pgEnum('item_type', ['account', 'documento', 'cartella', 'istruzione', 'crypto', 'dispositivo', 'lettera']);
 
 /** Una voce dell'inventario. Del contenuto il server vede solo tipo, dimensione e date. */
 export const items = pgTable('items', {
@@ -141,6 +141,14 @@ export const items = pgTable('items', {
   /** Vecchio campo (un solo file per voce): i file ora stanno in item_files. */
   blobKey: text('blob_key'),
   blobSize: bigint('blob_size', { mode: 'number' }),
+  /**
+   * Lettere nel tempo: a chi va e da quando si può leggere (dopo un'apertura per decesso).
+   * Il contenuto resta cifrato; il server conosce solo destinatario e data, per trattenere
+   * la lettera fino a quel giorno e mandare l'avviso.
+   */
+  deliverAt: timestamp('deliver_at', { withTimezone: true }),
+  letterRecipientId: uuid('letter_recipient_id').references(() => persons.id, { onDelete: 'set null' }),
+  letterNotifiedAt: timestamp('letter_notified_at', { withTimezone: true }),
   /** Fornitore del catalogo a cui si riferisce la voce, se è un account. */
   providerId: uuid('provider_id').references(() => providers.id, { onDelete: 'set null' }),
   createdAt: createdAt(),

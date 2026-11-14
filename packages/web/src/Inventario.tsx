@@ -7,6 +7,7 @@ import { Piano, RigaPiano } from './Piano';
 import { calcolaProntezza, type Prontezza } from './prontezza';
 import { SchedaFornitore } from './SchedaFornitore';
 import { TrovaTutto } from './TrovaTutto';
+import { dataLunga, FoglioLettera, NuovaLettera } from './Lettere';
 import { Persone } from './Persone';
 import { sincronizzaRilascio, type StatoRilascio } from './rilascio';
 import { aggiornaVoce, aggiungiDocumenti, aggiungiVoce, documentiDi, leggiVoci, MAX_DOCUMENTI, rimuoviDocumento, scaricaFile, type AzioneAccount, type ContenutoVoce, type Voce } from './vault';
@@ -18,6 +19,7 @@ const TIPI: { tipo: TipoVoce; nome: string; descrizione: string }[] = [
   { tipo: 'dispositivo', nome: 'Dispositivo', descrizione: 'Telefono, computer, chiavette' },
   { tipo: 'crypto', nome: 'Criptovalute', descrizione: 'Dove sono e chi deve accedervi (mai la frase di recupero)' },
   { tipo: 'cartella', nome: 'Cartella', descrizione: 'Foto e ricordi da lasciare' },
+  { tipo: 'lettera', nome: 'Lettera per il futuro', descrizione: 'Parole, foto o un audio per qualcuno, da aprire in un giorno che scegli tu' },
 ];
 
 const nomeTipo = (t: TipoVoce) => TIPI.find((x) => x.tipo === t)?.nome ?? t;
@@ -49,7 +51,7 @@ export function Inventario({
   const [mieiCasi, setMieiCasi] = useState<Caso[]>([]);
   const [stato, setStato] = useState<StatoRilascio | null>(null);
   const [scheda, setScheda] = useState<'voci' | 'persone' | 'controllo' | 'altri' | 'operatore'>('voci');
-  const [vista, setVista] = useState<{ tipo: 'elenco' } | { tipo: 'nuova' } | { tipo: 'dettaglio'; id: string } | { tipo: 'piano' } | { tipo: 'trova' }>({ tipo: 'elenco' });
+  const [vista, setVista] = useState<{ tipo: 'elenco' } | { tipo: 'nuova' } | { tipo: 'dettaglio'; id: string } | { tipo: 'piano' } | { tipo: 'trova' } | { tipo: 'lettera' }>({ tipo: 'elenco' });
   const [piano, setPiano] = useState<StatoPiano | null>(null);
   const [controlloAttivo, setControlloAttivo] = useState(true);
   const [errore, setErrore] = useState<string | null>(null);
@@ -137,10 +139,33 @@ export function Inventario({
     );
   }
 
+  if (vista.tipo === 'lettera') {
+    return (
+      <NuovaLettera
+        vaultKey={vaultKey}
+        persone={persone}
+        scegliDocumenti={(files, onCambia) => (
+          <ScegliDocumenti files={files} onCambia={onCambia} etichetta="Foto, audio o video da allegare (facoltativi, massimo 25 MB ciascuno)" />
+        )}
+        onAnnulla={() => setVista({ tipo: 'elenco' })}
+        onVaiPersone={() => {
+          setVista({ tipo: 'elenco' });
+          setScheda('persone');
+        }}
+        onFatto={async () => {
+          await ricarica();
+          setVista({ tipo: 'elenco' });
+          setEsito('Lettera chiusa nella cassaforte. Resterà cifrata fino al giorno che hai scelto.');
+        }}
+      />
+    );
+  }
+
   if (vista.tipo === 'nuova') {
     return (
       <NuovaVoce
         fornitori={fornitori}
+        onLettera={() => setVista({ tipo: 'lettera' })}
         onAnnulla={() => setVista({ tipo: 'elenco' })}
         onSalva={async (dati) => {
           await aggiungiVoce(vaultKey, dati);
@@ -155,6 +180,45 @@ export function Inventario({
     const v = voci?.find((x) => x.id === vista.id);
     if (!v) return null;
     const f = fornitori.find((x) => x.slug === v.contenuto.fornitore);
+    if (v.tipo === 'lettera') {
+      const per = persone.find((x) => x.id === v.remota.lettera?.destinatarioId);
+      const quando = v.remota.lettera?.consegnaIl;
+      return (
+        <section className="passo">
+          <p className="etichetta">Lettera per il futuro</p>
+          <p className="pillola chiara">
+            Per {per?.nome ?? 'una persona rimossa'} · {quando ? `si apre il ${dataLunga(quando)}` : 'si apre insieme alla cassaforte'}
+          </p>
+          <FoglioLettera titolo={v.contenuto.titolo} testo={v.contenuto.note} />
+          <Documenti
+            voce={v}
+            onApri={(f) => scaricaFile(vaultKey, v, f)}
+            onAggiungi={async (files) => {
+              await aggiungiDocumenti(vaultKey, v, files);
+              await ricarica();
+            }}
+            onTogli={async (f) => {
+              await rimuoviDocumento(vaultKey, v, f.id);
+              await ricarica();
+            }}
+          />
+          <button
+            className="pericolo"
+            onClick={async () => {
+              if (!window.confirm('Eliminare questa lettera?')) return;
+              await api.eliminaVoce(v.id);
+              await ricarica();
+              setVista({ tipo: 'elenco' });
+            }}
+          >
+            Elimina la lettera
+          </button>
+          <button className="link" onClick={() => setVista({ tipo: 'elenco' })}>
+            Torna all'elenco
+          </button>
+        </section>
+      );
+    }
     return (
       <section className="passo">
         <p className="etichetta">{nomeTipo(v.tipo)}</p>
@@ -321,6 +385,11 @@ export function Inventario({
                       {chi.length > 0 && <span className="tenue">Per: {chi.join(', ')}</span>}
                       <span className="dettagli">
                         {v.emergenza && <span className="pillola">Emergenza</span>}
+                        {v.tipo === 'lettera' && (
+                          <span className="pillola chiara">
+                            {v.remota.lettera?.consegnaIl ? `Si apre il ${dataLunga(v.remota.lettera.consegnaIl)}` : 'Si apre con la cassaforte'}
+                          </span>
+                        )}
                         {v.contenuto.abbonamento && (
                           <span className="pillola chiara">CHF {v.contenuto.abbonamento.chfMese.toFixed(2)} al mese</span>
                         )}
@@ -452,6 +521,7 @@ function Volonta(p: {
 function NuovaVoce(p: {
   fornitori: Fornitore[];
   onAnnulla: () => void;
+  onLettera: () => void;
   onSalva: (d: { tipo: TipoVoce; emergenza: boolean; titolo: string; note: string; fornitore?: string; files?: File[] }) => Promise<void>;
 }) {
   const [tipo, setTipo] = useState<TipoVoce | null>(null);
@@ -469,7 +539,7 @@ function NuovaVoce(p: {
         <h1>Che cosa vuoi aggiungere?</h1>
         <div className="scelte">
           {TIPI.map((t) => (
-            <button key={t.tipo} className="scelta" onClick={() => setTipo(t.tipo)}>
+            <button key={t.tipo} className="scelta" onClick={() => (t.tipo === 'lettera' ? p.onLettera() : setTipo(t.tipo))}>
               <span className="titolo">{t.nome}</span>
               <span className="tenue">{t.descrizione}</span>
             </button>

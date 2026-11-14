@@ -71,6 +71,13 @@
       "when": 1794658225703,
       "tag": "0009_domini_catalogo",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794658632245,
+      "tag": "0010_lettere",
+      "breakpoints": true
     }
   ]
 }

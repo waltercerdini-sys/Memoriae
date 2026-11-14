@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, type Ambito, type CassaforteAffidata, type Caso, type Fornitore, type Ricevuto } from './api';
+import { dataLunga, FoglioLettera } from './Lettere';
 import { SchedaFornitore } from './SchedaFornitore';
 import { apriCaso, apriRicevuto, salvaFileAperto, type EsitoApertura, type VoceAperta } from './apertura';
 
@@ -247,8 +248,19 @@ function ElencoVoci(p: { titolo?: string; voci: VoceAperta[]; scarica: (v: VoceA
       <ul className="voci">
         {p.voci.map((v) => (
           <li key={v.id} className="voce aperta">
-            <span className="titolo">{v.contenuto.titolo}</span>
-            {v.contenuto.note && <p className="note">{v.contenuto.note}</p>}
+            {v.tipo === 'lettera' && v.inArrivo ? (
+              <div className="lettera-chiusa">
+                <span className="titolo">Una lettera ti aspetta</span>
+                <p>Si aprirà il {dataLunga(v.inArrivo)}. Quel giorno riceverai un'e-mail.</p>
+              </div>
+            ) : v.tipo === 'lettera' ? (
+              <FoglioLettera titolo={v.contenuto.titolo} testo={v.contenuto.note} />
+            ) : (
+              <>
+                <span className="titolo">{v.contenuto.titolo}</span>
+                {v.contenuto.note && <p className="note">{v.contenuto.note}</p>}
+              </>
+            )}
             {v.contenuto.azione && (
               <p className="tenue">
                 Volontà: {v.contenuto.azione === 'cancellare' ? 'chiudere e cancellare l\'account' : v.contenuto.azione === 'conservare' ? 'conservarlo come ricordo' : 'consegnarlo ai destinatari'}
