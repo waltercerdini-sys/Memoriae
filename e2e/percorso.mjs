@@ -114,6 +114,29 @@ await page.getByRole('button', { name: 'procura.pdf', exact: true }).waitFor({ s
 await shot('08b-documenti');
 step('documenti aggiunti e tolti dal dettaglio');
 
+// Apple: contatto erede e chiave di accesso tenuti in MEMORIAE.
+await page.getByRole('button', { name: "Torna all'elenco" }).click();
+await page.getByRole('button', { name: 'Aggiungi una voce' }).click();
+await page.getByRole('button', { name: /^Account/ }).click();
+await page.getByLabel('Titolo').fill('iCloud');
+await page.getByLabel('Servizio').selectOption('apple');
+await page.getByRole('button', { name: 'Salva nella cassaforte' }).click();
+await page.getByRole('button', { name: /iCloud/ }).click();
+const erede = page.getByLabel('Contatto erede di Apple');
+await erede.getByLabel('Nome e cognome').fill('Anna Bianchi');
+await erede.getByRole('button', { name: 'Aggiungi', exact: true }).click();
+await erede.getByRole('listitem').filter({ hasText: 'Anna Bianchi' }).waitFor();
+await erede.getByLabel(/Allega la chiave di accesso/).setInputFiles({ name: 'chiave-apple.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.7 chiave') });
+await erede.getByText('Allegata: «chiave-apple.pdf»').waitFor();
+await erede.scrollIntoViewIfNeeded();
+await shot('08c-contatto-erede-dettaglio');
+await page.getByLabel('Fatto: ho impostato questa funzione').isChecked().then((x) => { if (!x) throw new Error('Funzione non segnata come impostata'); });
+await page.getByRole('button', { name: "Torna all'elenco" }).click();
+await page.getByRole('button', { name: 'Cosa manca?' }).click();
+await page.getByText(/seconda persona come contatto erede per Apple/).waitFor();
+await shot('08c-contatto-erede');
+step('contatto erede di Apple e chiave di accesso salvati');
+
 // Ricarico: la chiave della cassaforte non sopravvive in memoria, va riaperta con la passkey.
 await page.reload();
 await page.getByRole('button', { name: 'Accedi con la passkey' }).click();

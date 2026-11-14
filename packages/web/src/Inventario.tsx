@@ -6,6 +6,8 @@ import { Operatore } from './Operatore';
 import { Piano, RigaPiano } from './Piano';
 import { calcolaProntezza, type Prontezza } from './prontezza';
 import { SchedaFornitore } from './SchedaFornitore';
+import { SchedaErede } from './SchedaErede';
+import { funzioneErede } from './contattoErede';
 import { TrovaTutto } from './TrovaTutto';
 import { dataLunga, FoglioLettera, NuovaLettera } from './Lettere';
 import { Persone } from './Persone';
@@ -257,6 +259,23 @@ export function Inventario({
               await aggiornaVoce(vaultKey, v, { ...v.contenuto, impostatoDaVivo: fatto }, v.emergenza);
               await ricarica();
             }}
+          />
+        )}
+        {f && funzioneErede(v) && (
+          <SchedaErede
+            voce={v}
+            fz={funzioneErede(v)!}
+            servizio={f.nome.split(' (')[0] ?? f.nome}
+            onSalvaContatti={async (contatti) => {
+              const erede = { ...v.contenuto.erede, contatti };
+              await aggiornaVoce(vaultKey, v, { ...v.contenuto, erede, ...(contatti.length ? { impostatoDaVivo: true } : {}) }, v.emergenza);
+              await ricarica();
+            }}
+            onAllegaChiave={async (file) => {
+              await aggiungiDocumenti(vaultKey, v, [file], (nuovi) => ({ erede: { contatti: v.contenuto.erede?.contatti ?? [], chiaveFileId: nuovi[0]?.id } }));
+              await ricarica();
+            }}
+            onApri={(x) => scaricaFile(vaultKey, v, x)}
           />
         )}
         <button

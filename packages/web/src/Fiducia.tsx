@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api, type Ambito, type CassaforteAffidata, type Caso, type Fornitore, type Ricevuto } from './api';
 import { dataLunga, FoglioLettera } from './Lettere';
 import { SchedaFornitore } from './SchedaFornitore';
+import { FUNZIONI_EREDE } from './contattoErede';
 import { apriCaso, apriRicevuto, salvaFileAperto, type EsitoApertura, type VoceAperta } from './apertura';
 
 const data = (s: string) => new Date(s).toLocaleString('it-CH', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -266,6 +267,21 @@ function ElencoVoci(p: { titolo?: string; voci: VoceAperta[]; scarica: (v: VoceA
                 Volontà: {v.contenuto.azione === 'cancellare' ? 'chiudere e cancellare l\'account' : v.contenuto.azione === 'conservare' ? 'conservarlo come ricordo' : 'consegnarlo ai destinatari'}
               </p>
             )}
+            {(() => {
+              const fz = v.contenuto.fornitore ? FUNZIONI_EREDE[v.contenuto.fornitore] : undefined;
+              const contatti = v.contenuto.erede?.contatti ?? [];
+              if (!fz || contatti.length === 0) return null;
+              const chiave = v.documenti.find((d) => d.id === v.contenuto.erede?.chiaveFileId);
+              return (
+                <p className="riquadro evidenza">
+                  {fz.persone}: <b>{contatti.join(', ')}</b>.{' '}
+                  {fz.chiave &&
+                    (chiave
+                      ? `La ${fz.chiave.nome} è il documento «${chiave.nome}» qui sotto: serve a ${contatti.length === 1 ? 'questa persona' : 'queste persone'} per la richiesta. Se non ${contatti.length === 1 ? 'c\'è più o l\'ha persa' : 'ci sono più o l\'hanno persa'}, consegnala a chi ne ha diritto.`
+                      : `Chiedi a ${contatti.length === 1 ? 'questa persona' : 'queste persone'} la ${fz.chiave.nome}: serve per la richiesta.`)}
+                </p>
+              );
+            })()}
             {(() => {
               const f = fornitori.find((x) => x.slug === v.contenuto.fornitore);
               if (!f) return null;

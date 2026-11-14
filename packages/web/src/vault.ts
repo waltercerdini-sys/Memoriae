@@ -41,6 +41,8 @@ export interface ContenutoVoce {
   abbonamento?: { chfMese: number };
   /** L'utente ha già impostato la funzione d'eredità del fornitore (contatto erede, account inattivo…). */
   impostatoDaVivo?: boolean;
+  /** Persone indicate nella funzione d'eredità del fornitore e documento con la chiave (vedi contattoErede.ts). */
+  erede?: { contatti: string[]; chiaveFileId?: string };
   /** Documenti allegati: nome e tipo restano cifrati qui; il server vede solo id e dimensione. */
   files?: FileVoce[];
   /** Versione precedente: un solo documento, con lo stesso id della voce. */
@@ -202,7 +204,13 @@ export async function aggiungiVoce(
 }
 
 /** Aggiunge documenti a una voce esistente. */
-export async function aggiungiDocumenti(vaultKey: Uint8Array, voce: Voce, files: File[]): Promise<void> {
+export async function aggiungiDocumenti(
+  vaultKey: Uint8Array,
+  voce: Voce,
+  files: File[],
+  /** Altre modifiche da salvare insieme all'elenco dei documenti (per esempio quale documento è la chiave). */
+  modifica?: (nuovi: FileVoce[]) => Partial<ContenutoVoce>,
+): Promise<void> {
   const attuali = documentiDi(voce.id, voce.contenuto);
   if (attuali.length + files.length > MAX_DOCUMENTI) throw new Error(`Al massimo ${MAX_DOCUMENTI} documenti per voce`);
   const k = await unwrapItemKey(vaultKey, comeEncrypted(voce.remota));
@@ -210,7 +218,7 @@ export async function aggiungiDocumenti(vaultKey: Uint8Array, voce: Voce, files:
   // Prima i file, poi l'elenco: se il caricamento si interrompe, la voce non punta a file mancanti.
   await caricaDocumenti(voce.id, k, files, meta);
   const { file: _vecchio, ...resto } = voce.contenuto;
-  await aggiornaVoce(vaultKey, voce, { ...resto, files: [...attuali, ...meta] }, voce.emergenza);
+  await aggiornaVoce(vaultKey, voce, { ...resto, files: [...attuali, ...meta], ...(modifica?.(meta) ?? {}) }, voce.emergenza);
 }
 
 /** Toglie un documento da una voce. */

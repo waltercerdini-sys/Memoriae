@@ -1,6 +1,7 @@
 import type { Fornitore, Persona } from './api';
 import { IMPORTANTI, type Categoria } from './elencoPassword';
 import type { Voce } from './vault';
+import { mancanzeErede } from './contattoErede';
 
 /**
  * Quanto è pronta l'eredità digitale, da 0 a 100: un numero solo, come la batteria del telefono.
@@ -41,6 +42,10 @@ export function calcolaProntezza(voci: Voce[], persone: Persona[], fornitori: Fo
   if (daImpostare.length > impostati.length) {
     const n = daImpostare.length - impostati.length;
     passi.push(`Imposta la funzione d'eredità di ${n === 1 ? '1 servizio' : `${n} servizi`} (per esempio il contatto erede di Apple o Google).`);
+  }
+  for (const v of voci) {
+    const f = fornitori.find((x) => x.slug === v.contenuto.fornitore);
+    if (f) passi.push(...mancanzeErede(v, f.nome.split(' (')[0] ?? f.nome));
   }
   if (!controlloAttivo) passi.push('Riattiva il controllo periodico «sono qui».');
 
