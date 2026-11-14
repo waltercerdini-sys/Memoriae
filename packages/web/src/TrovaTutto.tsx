@@ -183,8 +183,8 @@ export function TrovaTutto(p: { vaultKey: Uint8Array; fornitori: Fornitore[]; vo
       </p>
       {!esito.account.some((a) => a.categoria === 'e-mail') && (
         <p className="avviso">
-          Non abbiamo trovato caselle di posta. Se leggi la posta con un programma come Mail di Apple, la casella spesso non compare in
-          questo elenco: aggiungila a mano con «Aggiungi una voce» › Account (in Mail la trovi in Impostazioni › Account).
+          Controlla le tue caselle di posta: se leggi la posta con un programma come Mail di Apple, spesso non compaiono in questo elenco.
+          Le vedi in Mail › Impostazioni › Account; aggiungi quelle che mancano con «Aggiungi una voce» › Account.
         </p>
       )}
 
