@@ -103,7 +103,7 @@ for (const [titolo, chi] of [['Lettera per Marco', 'Marco Bianchi'], ['Foto per 
   await R.page.getByLabel(chi).check();
   await R.page.getByRole('button', { name: 'Salva le volontà' }).click();
   await R.page.getByText('Volontà salvate.').waitFor();
-  await R.page.getByRole('button', { name: "Torna all'elenco" }).click();
+  await R.page.getByRole('button', { name: "Torna all'elenco", exact: true }).click();
 }
 await R.page.getByText('Per: Marco Bianchi').waitFor();
 // Due lettere per Marco: una da aprire subito, una nel 2040.

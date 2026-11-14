@@ -54,6 +54,28 @@ export function Inventario({
   const [stato, setStato] = useState<StatoRilascio | null>(null);
   const [scheda, setScheda] = useState<'voci' | 'persone' | 'controllo' | 'altri' | 'operatore'>('voci');
   const [vista, setVista] = useState<{ tipo: 'elenco' } | { tipo: 'nuova' } | { tipo: 'dettaglio'; id: string } | { tipo: 'piano' } | { tipo: 'trova' } | { tipo: 'lettera' }>({ tipo: 'elenco' });
+
+  // Il tasto «indietro» del browser torna alla schermata precedente dentro MEMORIAE invece di uscire.
+  useEffect(() => {
+    const nav = { scheda, vista };
+    const attuale = (history.state as { memoriae?: unknown } | null)?.memoriae;
+    if (!attuale) history.replaceState({ ...(history.state ?? {}), memoriae: nav }, '');
+    else if (JSON.stringify(attuale) !== JSON.stringify(nav)) {
+      history.pushState({ memoriae: nav }, '');
+      window.scrollTo(0, 0);
+    }
+  }, [scheda, vista]);
+  useEffect(() => {
+    const onPop = (e: PopStateEvent) => {
+      const n = (e.state as { memoriae?: { scheda: typeof scheda; vista: typeof vista } } | null)?.memoriae;
+      if (!n) return;
+      setScheda(n.scheda);
+      setVista(n.vista);
+      window.scrollTo(0, 0);
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
   const [piano, setPiano] = useState<StatoPiano | null>(null);
   const [controlloAttivo, setControlloAttivo] = useState(true);
   const [errore, setErrore] = useState<string | null>(null);
@@ -180,13 +202,20 @@ export function Inventario({
 
   if (vista.tipo === 'dettaglio') {
     const v = voci?.find((x) => x.id === vista.id);
-    if (!v) return null;
+    if (!v) {
+      // Voce eliminata o non ancora caricata (per esempio tornando indietro con il browser).
+      if (voci) queueMicrotask(() => setVista({ tipo: 'elenco' }));
+      return null;
+    }
     const f = fornitori.find((x) => x.slug === v.contenuto.fornitore);
     if (v.tipo === 'lettera') {
       const per = persone.find((x) => x.id === v.remota.lettera?.destinatarioId);
       const quando = v.remota.lettera?.consegnaIl;
       return (
         <section className="passo">
+<button className="link indietro" onClick={() => setVista({ tipo: 'elenco' })}>
+            ‹ Torna all'elenco
+          </button>
           <p className="etichetta">Lettera per il futuro</p>
           <p className="pillola chiara">
             Per {per?.nome ?? 'una persona rimossa'} · {quando ? `si apre il ${dataLunga(quando)}` : 'si apre insieme alla cassaforte'}
@@ -223,6 +252,9 @@ export function Inventario({
     }
     return (
       <section className="passo">
+<button className="link indietro" onClick={() => setVista({ tipo: 'elenco' })}>
+          ‹ Torna all'elenco
+        </button>
         <p className="etichetta">{nomeTipo(v.tipo)}</p>
         <h1>{v.contenuto.titolo}</h1>
         {v.emergenza && <p className="pillola">Serve in caso di emergenza</p>}

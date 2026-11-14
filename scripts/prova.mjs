@@ -149,6 +149,7 @@ Object.assign(env, {
   APP_ORIGIN: url,
   MEMORIAE_SERVER_PORT: String(portaServer),
   MEMORIAE_WEB_PORT: String(portaApp),
+  MEMORIAE_PROVA: '1',
 });
 
 console.log('Avvio MEMORIAE (server e app)… il primo avvio può richiedere qualche secondo.');

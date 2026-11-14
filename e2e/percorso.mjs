@@ -115,7 +115,7 @@ await shot('08b-documenti');
 step('documenti aggiunti e tolti dal dettaglio');
 
 // Apple: contatto erede e chiave di accesso tenuti in MEMORIAE.
-await page.getByRole('button', { name: "Torna all'elenco" }).click();
+await page.getByRole('button', { name: "Torna all'elenco", exact: true }).click();
 await page.getByRole('button', { name: 'Aggiungi una voce' }).click();
 await page.getByRole('button', { name: /^Account/ }).click();
 await page.getByLabel('Titolo').fill('iCloud');
@@ -131,7 +131,12 @@ await erede.getByText('Allegata: «chiave-apple.pdf»').waitFor();
 await erede.scrollIntoViewIfNeeded();
 await shot('08c-contatto-erede-dettaglio');
 await page.getByLabel('Fatto: ho impostato questa funzione').isChecked().then((x) => { if (!x) throw new Error('Funzione non segnata come impostata'); });
-await page.getByRole('button', { name: "Torna all'elenco" }).click();
+// Il tasto «indietro» del browser torna all'elenco, con la cassaforte ancora aperta.
+await page.goBack();
+await page.getByRole('button', { name: /Conto PostFinance/ }).waitFor();
+await page.getByRole('button', { name: /iCloud/ }).click();
+await page.getByRole('heading', { name: 'iCloud', exact: true }).waitFor();
+await page.getByRole('button', { name: "‹ Torna all'elenco" }).click();
 await page.getByRole('button', { name: 'Cosa manca?' }).click();
 await page.getByText(/seconda persona come contatto erede per Apple/).waitFor();
 await shot('08c-contatto-erede');

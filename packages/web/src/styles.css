@@ -616,3 +616,9 @@ textarea.carta {
   flex: 1 1 14rem;
   min-width: 0;
 }
+
+.link.indietro {
+  align-self: flex-start;
+  margin-bottom: 0.5rem;
+  font-size: 1.05rem;
+}

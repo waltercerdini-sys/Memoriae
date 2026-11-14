@@ -104,7 +104,7 @@ await R.page.getByLabel('Anna Verdi').check();
 await R.page.getByRole('button', { name: 'Salva le volontà' }).click();
 await R.page.getByText('Volontà salvate.').waitFor();
 await R.shot('04-volonta');
-await R.page.getByRole('button', { name: "Torna all'elenco" }).click();
+await R.page.getByRole('button', { name: "Torna all'elenco", exact: true }).click();
 await R.page.getByText('Per: Anna Verdi, Giulia (nipote)').waitFor();
 await R.page.getByRole('tab', { name: 'Persone' }).click();
 const esito = await R.page.locator('.esito').first().textContent();

@@ -77,7 +77,7 @@ await page.getByRole('button', { name: /Apple/ }).click();
 await page.getByText('Contatto erede').first().waitFor();
 await page.getByLabel('Fatto: ho impostato questa funzione').check();
 await page.waitForTimeout(800); // salvataggio cifrato
-await page.getByRole('button', { name: "Torna all'elenco" }).click();
+await page.getByRole('button', { name: "Torna all'elenco", exact: true }).click();
 await page.getByRole('button', { name: 'Cosa manca?' }).click();
 await page.getByText(/Decidi a chi vanno/).waitFor();
 await shot('04-prontezza');
