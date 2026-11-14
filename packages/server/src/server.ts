@@ -5,17 +5,13 @@ import { loadConfig, loadEnvFile } from './config';
 import { createDatabase } from './db/client';
 import { seedProviders } from './db/seed-providers';
 import { startScheduler } from './jobs/scheduler';
-import { FileMailer } from './mail/mailer';
+import { DevMailer, FileMailer, SmtpMailer, type Mailer } from './mail/mailer';
 import { StripeProvider } from './payments/provider';
 import { LocalDiskBlobStore } from './storage/blobs';
 import { DevKeyCustody, loadDevMasterKey } from './storage/custody';
 
 loadEnvFile();
 const config = loadConfig();
-if (config.NODE_ENV === 'production') {
-  // Le e-mail di sviluppo finiscono in un file: in produzione serve l'invio vero (SMTP), non ancora collegato.
-  throw new Error('Produzione non ancora supportata: manca l\'invio e-mail via SMTP');
-}
 const { db, migrate, close } = createDatabase(config.DATABASE_URL);
 // Database integrato (prove sul proprio computer): si prepara da solo all'avvio.
 if (config.DATABASE_URL.startsWith('pglite:')) {
@@ -23,7 +19,11 @@ if (config.DATABASE_URL.startsWith('pglite:')) {
   await seedProviders(db);
 }
 const masterKey = await loadDevMasterKey(config.CUSTODY_KEY_FILE);
-const mailer = new FileMailer(config.MAIL_OUTBOX);
+const smtp = config.SMTP_HOST
+  ? new SmtpMailer({ host: config.SMTP_HOST, port: config.SMTP_PORT, user: config.SMTP_USER!, password: config.SMTP_PASSWORD!, from: config.MAIL_FROM ?? `MEMORIAE <${config.SMTP_USER}>` })
+  : null;
+const mailer: Mailer = config.NODE_ENV === 'production' ? smtp! : new DevMailer(new FileMailer(config.MAIL_OUTBOX), smtp);
+console.log(smtp ? `✉️  E-mail: invio vero attivo da ${config.SMTP_USER} (${config.SMTP_HOST})` : '✉️  E-mail: solo nel terminale (per l\'invio vero: npm run posta)');
 const app = buildApp({
   db,
   passkeys: createPasskeyService({ rpId: config.WEBAUTHN_RP_ID, rpName: 'MEMORIAE', origins: config.WEBAUTHN_ORIGINS }),

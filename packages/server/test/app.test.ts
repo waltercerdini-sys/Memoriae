@@ -10,7 +10,7 @@ import { DevKeyCustody } from '../src/storage/custody';
 import { MemoryMailer } from '../src/mail/mailer';
 import { createFakePasskeys, createTestDatabase } from './helpers';
 
-const STRIPE = { PAYMENTS_PROVIDER: 'stripe', STRIPE_SECRET_KEY: 'sk_test_x', STRIPE_WEBHOOK_SECRET: 'whsec_x', STRIPE_PRICE_ESSENZIALE: 'price_a', STRIPE_PRICE_FAMIGLIA: 'price_b' };
+const STRIPE = { PAYMENTS_PROVIDER: 'stripe', STRIPE_SECRET_KEY: 'sk_test_x', STRIPE_WEBHOOK_SECRET: 'whsec_x', STRIPE_PRICE_ESSENZIALE: 'price_a', STRIPE_PRICE_FAMIGLIA: 'price_b', SMTP_HOST: 'mail.infomaniak.com', SMTP_USER: 'info@memoriae.ch', SMTP_PASSWORD: 'x' };
 
 const appFor = (db: Database) =>
   buildApp({ db, custody: new DevKeyCustody(db, new Uint8Array(32).fill(7)), appOrigin: 'http://localhost:5173', passkeys: createFakePasskeys(), blobs: new MemoryBlobStore(), mailer: new MemoryMailer(), cookieSecure: false, logLevel: 'silent' });
@@ -103,5 +103,8 @@ describe('configurazione', () => {
     expect(() => loadConfig({ DATABASE_URL: 'postgres://x', PAYMENTS_PROVIDER: 'stripe' })).toThrow(/STRIPE_SECRET_KEY/);
     expect(() => loadConfig({ DATABASE_URL: 'postgres://x', NODE_ENV: 'production', OPERATOR_EMAILS: 'op@memoriae.ch', ATTESA_PROVA_SECONDI: '60', ...STRIPE })).toThrow(/attesa/);
     expect(() => loadConfig({ DATABASE_URL: 'postgres://x', NODE_ENV: 'production', COOKIE_SECURE: 'false' })).toThrow(/HTTPS/);
+    expect(() => loadConfig({ DATABASE_URL: 'postgres://x', NODE_ENV: 'production', OPERATOR_EMAILS: 'op@memoriae.ch', ...STRIPE, SMTP_HOST: '' })).toThrow(/invio e-mail/);
+    expect(() => loadConfig({ DATABASE_URL: 'postgres://x', SMTP_HOST: 'mail.infomaniak.com' })).toThrow(/SMTP_USER/);
+    expect(loadConfig({ DATABASE_URL: 'postgres://x' }).SMTP_PORT).toBe(465);
   });
 });

@@ -45,6 +45,13 @@ const ConfigSchema = z.object({
   JOBS_INTERVAL_SECONDS: z.coerce.number().int().min(5).default(300),
   /** Pagamenti: «prova» (sviluppo, nessun denaro) oppure «stripe» (TWINT e carte). */
   PAYMENTS_PROVIDER: z.enum(['prova', 'stripe']).default('prova'),
+  /** Invio vero delle e-mail (SMTP). In prova è facoltativo: senza, le e-mail restano nel terminale. */
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().positive().default(465),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASSWORD: z.string().optional(),
+  /** Mittente, per esempio «MEMORIAE <info@memoriae.ch>». Predefinito: SMTP_USER. */
+  MAIL_FROM: z.string().optional(),
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
   STRIPE_PRICE_ESSENZIALE: z.string().optional(),
@@ -73,6 +80,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   }
   if (c.NODE_ENV === 'production' && c.PAYMENTS_PROVIDER !== 'stripe') {
     throw new Error('Configurazione non valida: in produzione i pagamenti di prova non sono ammessi');
+  }
+  if (c.SMTP_HOST && !(c.SMTP_USER && c.SMTP_PASSWORD)) {
+    throw new Error('Configurazione non valida: con SMTP_HOST servono anche SMTP_USER e SMTP_PASSWORD');
+  }
+  if (c.NODE_ENV === 'production' && !c.SMTP_HOST) {
+    throw new Error('Configurazione non valida: in produzione serve l\'invio e-mail (SMTP_HOST, SMTP_USER, SMTP_PASSWORD)');
   }
   if (c.PAYMENTS_PROVIDER === 'stripe' && !(c.STRIPE_SECRET_KEY && c.STRIPE_WEBHOOK_SECRET && c.STRIPE_PRICE_ESSENZIALE && c.STRIPE_PRICE_FAMIGLIA)) {
     throw new Error('Configurazione non valida: per Stripe servono STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET e i due prezzi');

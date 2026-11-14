@@ -34,6 +34,15 @@ npm run prova   # installa ciò che serve (se manca), avvia tutto e apre il brow
 Non serve Postgres: i dati di prova stanno nella cartella `data/` (si può cancellare per ricominciare).
 Le e-mail (codici, inviti, promemoria, collegamenti «blocca») compaiono nel terminale. Per fermare: Ctrl+C.
 
+Per far partire davvero le e-mail anche nelle prove (inviti, promemoria, codici), una volta sola:
+
+```bash
+npm run posta     # chiede la casella (Infomaniak, Gmail o altro), invia una prova e salva tutto nel file .env
+```
+
+Le e-mail restano comunque anche nel terminale. I collegamenti dentro le e-mail puntano a http://localhost:5173:
+funzionano solo sul computer dove gira la prova, finché MEMORIAE non sarà online.
+
 In prova l'attesa prima di un'apertura dura 2 minuti (invece di 14 giorni o 72 ore) e chiunque può fare
 da operatore, ma mai sulle cassaforti in cui è coinvolto. Per provare tutto il percorso servono quattro
 persone: si usano finestre diverse del browser (per esempio Safari, Chrome e una finestra privata).

@@ -9,7 +9,8 @@
     "prova": "node scripts/prova.mjs",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "sito": "npm run dev -w @memoriae/site"
+    "sito": "npm run dev -w @memoriae/site",
+    "posta": "node scripts/configura-posta.mjs"
   },
   "engines": {
     "node": ">=20"
