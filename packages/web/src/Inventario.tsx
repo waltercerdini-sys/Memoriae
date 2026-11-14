@@ -59,6 +59,8 @@ export function Inventario({
 
   // Il tasto «indietro» del browser torna alla schermata precedente dentro MEMORIAE invece di uscire.
   useEffect(() => {
+    // Lo scorrimento lo gestiamo noi (ritorno sulla voce): il browser non deve ripristinarlo da solo.
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
     const nav = { scheda, vista };
     const attuale = (history.state as { memoriae?: unknown } | null)?.memoriae;
     if (!attuale) history.replaceState({ ...(history.state ?? {}), memoriae: nav }, '');
@@ -80,9 +82,11 @@ export function Inventario({
   }, []);
   /** Ultima voce aperta o aggiunta: tornando all'elenco la ritroviamo lì, evidenziata. */
   const [ultima, setUltima] = useState<string | null>(null);
+  const daRiposizionare = useRef(false);
   const [filtro, setFiltro] = useState<'tutte' | 'da-completare'>('tutte');
   const apri = (id: string) => {
     setUltima(id);
+    daRiposizionare.current = true;
     setVista({ tipo: 'dettaglio', id });
   };
   const [piano, setPiano] = useState<StatoPiano | null>(null);
@@ -115,14 +119,26 @@ export function Inventario({
   const prontezza = voci ? calcolaProntezza(voci, persone, fornitori, controlloAttivo) : null;
 
   // Tornando all'elenco: la voce appena gestita in vista, evidenziata per un attimo.
+  // Una volta sola per ritorno (non a ogni ricaricamento dei dati), dopo che l'elenco è disegnato.
   useEffect(() => {
-    if (vista.tipo !== 'elenco' || scheda !== 'voci' || !ultima || !voci) return;
-    const el = document.getElementById(`voce-${ultima}`);
-    if (!el) return;
-    el.scrollIntoView({ block: 'center' });
-    el.classList.add('appena');
-    const t = setTimeout(() => el.classList.remove('appena'), 2000);
-    return () => clearTimeout(t);
+    if (vista.tipo !== 'elenco' || scheda !== 'voci' || !ultima || !voci || !daRiposizionare.current) return;
+    let t: ReturnType<typeof setTimeout> | undefined;
+    const f = requestAnimationFrame(() => {
+      // Se la voce non è in elenco (per esempio eliminata), si va alla voce che la seguiva.
+      const ordine = voci.map((v) => v.id);
+      const da = Math.max(0, ordine.indexOf(ultima));
+      const id = [ultima, ...ordine.slice(da + 1), ...ordine.slice(0, da).reverse()].find((x) => document.getElementById(`voce-${x}`));
+      const el = id ? document.getElementById(`voce-${id}`) : null;
+      daRiposizionare.current = false;
+      if (!el) return;
+      el.scrollIntoView({ block: 'center' });
+      el.classList.add('appena');
+      t = setTimeout(() => el.classList.remove('appena'), 2000);
+    });
+    return () => {
+      cancelAnimationFrame(f);
+      if (t) clearTimeout(t);
+    };
   }, [vista, scheda, ultima, voci]);
 
   async function bloccaMio(id: string, chiudi: boolean) {
@@ -214,6 +230,7 @@ export function Inventario({
         onFatto={async (id) => {
           await ricarica();
           setUltima(id);
+          daRiposizionare.current = true;
           setVista({ tipo: 'elenco' });
           setEsito('Lettera chiusa nella cassaforte. Resterà cifrata fino al giorno che hai scelto.');
         }}
@@ -231,6 +248,7 @@ export function Inventario({
           const id = await aggiungiVoce(vaultKey, dati);
           await ricarica();
           setUltima(id);
+          daRiposizionare.current = true;
           setVista({ tipo: 'elenco' });
         }}
       />
@@ -505,7 +523,7 @@ export function Inventario({
             <ul className="voci">
               {voci
                 .map((v) => ({ v, st: statoVoce(v, fornitori) }))
-                .filter(({ st }) => filtro === 'tutte' || !st.completa)
+                .filter(({ v, st }) => filtro === 'tutte' || !st.completa || v.id === ultima)
                 .map(({ v, st }) => {
                 const ids = v.tipo === 'lettera' ? (v.remota.lettera?.destinatari ?? []) : (v.contenuto.destinatari ?? []);
                 const chi = nomiDestinatari(ids, persone);
