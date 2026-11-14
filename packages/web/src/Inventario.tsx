@@ -498,7 +498,7 @@ function Volonta(p: {
             setEmergenza(e.target.checked);
           }}
         />
-        Serve anche in caso di emergenza (le persone di fiducia la ricevono subito)
+        Serve anche in caso di emergenza (le persone di fiducia la ricevono dopo la verifica e 72 ore d'attesa)
       </label>
       <button
         className="secondario"
