@@ -104,26 +104,62 @@ const risponde = (porta, host) =>
   });
 const libera = async (porta) =>
   (await prova(porta, '127.0.0.1')) && (await prova(porta, '::1')) && !(await risponde(porta, '127.0.0.1')) && !(await risponde(porta, '::1'));
-const occupate = [];
-for (const porta of [3000, 5173]) if (!(await libera(porta))) occupate.push(porta);
-if (occupate.length) {
-  console.log(`\nMEMORIAE sembra già aperta (porte occupate: ${occupate.join(', ')}).`);
-  console.log('- Se hai un\'altra finestra del Terminale con MEMORIAE, usa quella (http://localhost:5173) oppure fermala con Ctrl+C.');
-  console.log('- Se non la trovi, chiudi i programmi rimasti aperti con questo comando e poi riprova:');
-  console.log('    lsof -t -i :3000 -i :5173 | xargs kill\n');
+/** Risponde MEMORIAE su quella porta? (server: /health; app: la pagina con il titolo MEMORIAE) */
+async function eMemoriae(porta, tipo) {
+  try {
+    const r = await fetch(`http://localhost:${porta}${tipo === 'server' ? '/health' : '/'}`, { signal: AbortSignal.timeout(1500) });
+    const t = await r.text();
+    return tipo === 'server' ? t.includes('"stato"') : t.includes('<title>MEMORIAE</title>');
+  } catch {
+    return false;
+  }
+}
+async function scegliPorta(preferita, riserva) {
+  if (await libera(preferita)) return preferita;
+  for (const p of riserva) if (await libera(p)) return p;
+  return null;
+}
+
+const intervallo = (da, n) => Array.from({ length: n }, (_, i) => da + i);
+
+// MEMORIAE è già aperta in un'altra finestra? Allora basta usare quella.
+for (const porta of [5173, ...intervallo(5180, 20)]) {
+  if (!(await libera(porta)) && (await eMemoriae(porta, 'app'))) {
+    console.log(`\nMEMORIAE è già aperta in un'altra finestra del Terminale: http://localhost:${porta}`);
+    console.log('Per fermarla: in quella finestra premi Ctrl+C. Se non la trovi, riavvia il computer.\n');
+    if (process.platform === 'darwin') spawn('open', [`http://localhost:${porta}`]);
+    process.exit(0);
+  }
+}
+
+// Un altro programma del computer può usare le porte di MEMORIAE: in quel caso se ne scelgono altre, da sole.
+const portaServer = await scegliPorta(3000, intervallo(3100, 20));
+const portaApp = await scegliPorta(5173, intervallo(5180, 20));
+if (!portaServer || !portaApp) {
+  console.log('\nNon trovo porte libere per avviare MEMORIAE. Riavvia il computer e riprova.\n');
   process.exit(1);
 }
+if (portaServer !== 3000 || portaApp !== 5173) {
+  console.log(`(Le porte abituali sono occupate da un altro programma: uso ${portaServer} per il server e ${portaApp} per l'app.)`);
+}
+const url = `http://localhost:${portaApp}`;
+Object.assign(env, {
+  PORT: String(portaServer),
+  WEBAUTHN_ORIGINS: url,
+  APP_ORIGIN: url,
+  MEMORIAE_SERVER_PORT: String(portaServer),
+  MEMORIAE_WEB_PORT: String(portaApp),
+});
 
 console.log('Avvio MEMORIAE (server e app)… il primo avvio può richiedere qualche secondo.');
 avvia('server', ['run', 'start', '-w', '@memoriae/server']);
 avvia('app', ['run', 'dev', '-w', '@memoriae/web']);
 
 // Quando entrambi rispondono, apre il browser.
-const url = 'http://localhost:5173';
 for (let i = 0; i < 60; i++) {
   await new Promise((r) => setTimeout(r, 1000));
   try {
-    const ok = (await fetch('http://localhost:3000/health')).ok && (await fetch(url)).ok;
+    const ok = (await fetch(`http://localhost:${portaServer}/health`)).ok && (await fetch(url)).ok;
     if (ok) {
       console.log(`\n✅ MEMORIAE è pronta: ${url}\n   Le e-mail di prova (codici, inviti) compariranno qui sotto.\n   In prova l'attesa prima di un'apertura dura ${env.ATTESA_PROVA_SECONDI} secondi.\n   Per fermare: Ctrl+C\n`);
       if (process.platform === 'darwin') spawn('open', [url]);
