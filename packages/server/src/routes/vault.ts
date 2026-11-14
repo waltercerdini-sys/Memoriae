@@ -1,8 +1,8 @@
-import { and, asc, eq } from 'drizzle-orm';
-import type { FastifyInstance } from 'fastify';
+import { and, asc, eq, inArray } from 'drizzle-orm';
+import type { FastifyInstance, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import type { Database } from '../db/client';
-import { auditLog, checkinSchedules, items, passkeyCredentials, users, vaultKeyWraps, vaults } from '../db/schema';
+import { auditLog, checkinSchedules, itemFiles, items, passkeyCredentials, users, vaultKeyWraps, vaults } from '../db/schema';
 import { blobKey, type BlobStore } from '../storage/blobs';
 import { requireWritablePlan } from '../payments/subscriptions';
 import { requireUser } from './auth';
@@ -187,6 +187,7 @@ export async function vaultRoutes(app: FastifyInstance, opts: VaultRouteOptions)
     const v = await ownVault(req.user!.id);
     if (!v) return reply.code(404).send({ errore: 'Nessuna cassaforte' });
     const rows = await db.select().from(items).where(eq(items.vaultId, v.id)).orderBy(asc(items.createdAt));
+    const files = await filesOfVault(v.id);
     return {
       voci: rows.map((r) => ({
         id: r.id,
@@ -194,8 +195,7 @@ export async function vaultRoutes(app: FastifyInstance, opts: VaultRouteOptions)
         emergenza: r.isEmergency,
         chiaveVoceCifrata: r.wrappedItemKey,
         contenuto: r.content,
-        haFile: !!r.blobKey,
-        dimensioneFile: r.blobSize,
+        file: files.get(r.id) ?? [],
         creataIl: r.createdAt,
         modificataIl: r.updatedAt,
       })),
@@ -249,16 +249,19 @@ export async function vaultRoutes(app: FastifyInstance, opts: VaultRouteOptions)
     if (!p.success) return reply.code(400).send({ errore: 'Richiesta non valida' });
     const found = await ownItem(req.user!.id, p.data.id);
     if (!found) return reply.code(404).send({ errore: 'Voce non trovata' });
+    for (const f of await db.select().from(itemFiles).where(eq(itemFiles.itemId, p.data.id))) await blobs.delete(f.blobKey);
     if (found.item.blobKey) await blobs.delete(found.item.blobKey);
     await db.delete(items).where(eq(items.id, p.data.id));
     await log(req.user!.id, 'voce-eliminata', found.vault.id, { voce: p.data.id });
     return { ok: true };
   });
 
-  // ---- File cifrati ---------------------------------------------------------
+  // ---- File cifrati (più file per voce) ---------------------------------------
 
-  app.put('/v1/cassaforte/voci/:id/file', { preHandler: [auth, piano] }, async (req, reply) => {
-    const p = IdParam.safeParse(req.params);
+  const FileParam = z.object({ id: z.string().uuid(), fileId: z.string().uuid() });
+
+  app.put('/v1/cassaforte/voci/:id/file/:fileId', { preHandler: [auth, piano] }, async (req, reply) => {
+    const p = FileParam.safeParse(req.params);
     if (!p.success) return reply.code(400).send({ errore: 'Richiesta non valida' });
     if (!Buffer.isBuffer(req.body)) return reply.code(415).send({ errore: 'Atteso un file cifrato (application/octet-stream)' });
     const bytes = new Uint8Array(req.body);
@@ -268,20 +271,68 @@ export async function vaultRoutes(app: FastifyInstance, opts: VaultRouteOptions)
     }
     const found = await ownItem(req.user!.id, p.data.id);
     if (!found) return reply.code(404).send({ errore: 'Voce non trovata' });
-    const key = blobKey(found.vault.id, p.data.id);
+    const esistenti = await db.select().from(itemFiles).where(eq(itemFiles.itemId, p.data.id));
+    const giaPresente = esistenti.find((f) => f.id === p.data.fileId);
+    if (!giaPresente && esistenti.length >= MAX_FILES_PER_ITEM) {
+      return reply.code(409).send({ errore: `Al massimo ${MAX_FILES_PER_ITEM} file per voce` });
+    }
+    const key = blobKey(found.vault.id, p.data.fileId);
     await blobs.put(key, bytes);
-    await db.update(items).set({ blobKey: key, blobSize: bytes.length, updatedAt: new Date() }).where(eq(items.id, p.data.id));
-    await log(req.user!.id, 'file-caricato', found.vault.id, { voce: p.data.id, byte: bytes.length });
+    if (giaPresente) {
+      await db.update(itemFiles).set({ size: bytes.length }).where(eq(itemFiles.id, p.data.fileId));
+    } else {
+      await db.insert(itemFiles).values({ id: p.data.fileId, itemId: p.data.id, vaultId: found.vault.id, blobKey: key, size: bytes.length });
+    }
+    await db.update(items).set({ updatedAt: new Date() }).where(eq(items.id, p.data.id));
+    await log(req.user!.id, 'file-caricato', found.vault.id, { voce: p.data.id, file: p.data.fileId, byte: bytes.length });
     return { ok: true, byte: bytes.length };
   });
 
-  app.get('/v1/cassaforte/voci/:id/file', { preHandler: auth }, async (req, reply) => {
-    const p = IdParam.safeParse(req.params);
+  app.get('/v1/cassaforte/voci/:id/file/:fileId', { preHandler: auth }, async (req, reply) => {
+    const p = FileParam.safeParse(req.params);
     if (!p.success) return reply.code(400).send({ errore: 'Richiesta non valida' });
     const found = await ownItem(req.user!.id, p.data.id);
-    if (!found?.item.blobKey) return reply.code(404).send({ errore: 'File non trovato' });
-    const bytes = await blobs.get(found.item.blobKey);
-    if (!bytes) return reply.code(404).send({ errore: 'File non trovato' });
-    return reply.type('application/octet-stream').send(Buffer.from(bytes));
+    if (!found) return reply.code(404).send({ errore: 'File non trovato' });
+    return sendItemFile(db, blobs, p.data.id, p.data.fileId, reply);
   });
+
+  /** Togliere un file è come cancellare: si può fare anche senza piano attivo. */
+  app.delete('/v1/cassaforte/voci/:id/file/:fileId', { preHandler: auth }, async (req, reply) => {
+    const p = FileParam.safeParse(req.params);
+    if (!p.success) return reply.code(400).send({ errore: 'Richiesta non valida' });
+    const found = await ownItem(req.user!.id, p.data.id);
+    if (!found) return reply.code(404).send({ errore: 'Voce non trovata' });
+    const [f] = await db.select().from(itemFiles).where(and(eq(itemFiles.id, p.data.fileId), eq(itemFiles.itemId, p.data.id)));
+    if (!f) return reply.code(404).send({ errore: 'File non trovato' });
+    await blobs.delete(f.blobKey);
+    await db.delete(itemFiles).where(eq(itemFiles.id, f.id));
+    await log(req.user!.id, 'file-eliminato', found.vault.id, { voce: p.data.id, file: f.id });
+    return { ok: true };
+  });
+
+  async function filesOfVault(vaultId: string) {
+    const rows = await db.select().from(itemFiles).where(eq(itemFiles.vaultId, vaultId)).orderBy(asc(itemFiles.createdAt));
+    const map = new Map<string, { id: string; byte: number }[]>();
+    for (const f of rows) map.set(f.itemId, [...(map.get(f.itemId) ?? []), { id: f.id, byte: f.size }]);
+    return map;
+  }
+}
+
+export const MAX_FILES_PER_ITEM = 20;
+
+/** Elenco dei file per voce (id e dimensione): il nome è nel contenuto cifrato. */
+export async function filesByItem(db: Database, itemIds: string[]) {
+  const map = new Map<string, { id: string; byte: number }[]>();
+  if (itemIds.length === 0) return map;
+  const rows = await db.select().from(itemFiles).where(inArray(itemFiles.itemId, itemIds)).orderBy(asc(itemFiles.createdAt));
+  for (const f of rows) map.set(f.itemId, [...(map.get(f.itemId) ?? []), { id: f.id, byte: f.size }]);
+  return map;
+}
+
+/** Invia un file cifrato di una voce (il chiamante ha già controllato chi può leggerlo). */
+export async function sendItemFile(db: Database, blobs: BlobStore, itemId: string, fileId: string, reply: FastifyReply) {
+  const [f] = await db.select().from(itemFiles).where(and(eq(itemFiles.id, fileId), eq(itemFiles.itemId, itemId))).limit(1);
+  const bytes = f && (await blobs.get(f.blobKey));
+  if (!bytes) return reply.code(404).send({ errore: 'File non trovato' });
+  return reply.type('application/octet-stream').send(Buffer.from(bytes));
 }

@@ -69,12 +69,12 @@ export function Fiducia({ vaultKey }: { vaultKey: Uint8Array }) {
           Cassaforte di {esito.proprietario} – {esito.ambito === 'emergenza' ? 'emergenza' : 'eredità'}
         </h2>
         {esito.accessoFinoAl && <p className="tenue">Accesso d'emergenza fino al {data(esito.accessoFinoAl)}.</p>}
-        <ElencoVoci titolo="Per te" voci={esito.perMe} scarica={(v) => api.fileCaso(casoId, v.id)} vuoto="Non ci sono voci assegnate a te." />
+        <ElencoVoci titolo="Per te" voci={esito.perMe} scarica={(v, fid) => api.fileCaso(casoId, v.id, fid)} vuoto="Non ci sono voci assegnate a te." />
         {esito.daConsegnare.map((d) => (
           <div key={d.nome} className="riquadro evidenza">
             <h3>Da consegnare a {d.nome}</h3>
             <p className="tenue">{d.nome} non ha un account MEMORIAE: {esito.proprietario} ha chiesto a te di consegnare queste voci.</p>
-            <ElencoVoci voci={d.voci} scarica={(v) => api.fileCaso(casoId, v.id)} />
+            <ElencoVoci voci={d.voci} scarica={(v, fid) => api.fileCaso(casoId, v.id, fid)} />
           </div>
         ))}
         {esito.consegnati.length > 0 && (
@@ -92,7 +92,7 @@ export function Fiducia({ vaultKey }: { vaultKey: Uint8Array }) {
           ← Indietro
         </button>
         <h2>Da {ricevutoAperto.r.proprietario}</h2>
-        <ElencoVoci voci={ricevutoAperto.voci} scarica={(v) => api.fileRicevuto(ricevutoAperto.r.id, v.id)} vuoto="Il pacchetto è vuoto." />
+        <ElencoVoci voci={ricevutoAperto.voci} scarica={(v, fid) => api.fileRicevuto(ricevutoAperto.r.id, v.id, fid)} vuoto="Il pacchetto è vuoto." />
       </div>
     );
   }
@@ -173,7 +173,7 @@ function Richiesta(p: { c: CassaforteAffidata; inCorso: (a: Ambito) => boolean; 
   const nome = p.c.proprietario.split(' ')[0];
   const [ambito, setAmbito] = useState<Ambito>(p.inCorso('emergenza') ? 'decesso' : 'emergenza');
   const [motivo, setMotivo] = useState('');
-  const [file, setFile] = useState<File | null>(null);
+  const [documenti, setDocumenti] = useState<File[]>([]);
   const [errore, setErrore] = useState<string | null>(null);
   const [occupato, setOccupato] = useState(false);
 
@@ -183,7 +183,7 @@ function Richiesta(p: { c: CassaforteAffidata; inCorso: (a: Ambito) => boolean; 
     setOccupato(true);
     try {
       const { id } = await api.chiediApertura(p.c.vaultId, ambito, motivo);
-      if (file) await api.caricaDocumento(id, file);
+      for (const d of documenti) await api.caricaDocumento(id, d);
       await p.onFatto();
     } catch (err) {
       setErrore((err as Error).message);
@@ -218,8 +218,8 @@ function Richiesta(p: { c: CassaforteAffidata; inCorso: (a: Ambito) => boolean; 
         <textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={4} required minLength={10} />
       </label>
       <label>
-        Documento (certificato di morte o attestazione medica), se lo hai
-        <input type="file" accept=".pdf,image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+        Documenti (certificato di morte, attestazione medica), se li hai: fino a 5
+        <input type="file" multiple accept=".pdf,image/*" onChange={(e) => setDocumenti(Array.from(e.target.files ?? []).slice(0, 5))} />
       </label>
       <p className="tenue">{nome} riceverà subito un'e-mail e potrà bloccare la richiesta in qualsiasi momento.</p>
       {errore && <p className="avviso">{errore}</p>}
@@ -233,7 +233,7 @@ function Richiesta(p: { c: CassaforteAffidata; inCorso: (a: Ambito) => boolean; 
   );
 }
 
-function ElencoVoci(p: { titolo?: string; voci: VoceAperta[]; scarica: (v: VoceAperta) => Promise<Uint8Array>; vuoto?: string }) {
+function ElencoVoci(p: { titolo?: string; voci: VoceAperta[]; scarica: (v: VoceAperta, fileId: string) => Promise<Uint8Array>; vuoto?: string }) {
   const [errore, setErrore] = useState<string | null>(null);
   const [fornitori, setFornitori] = useState<Fornitore[]>([]);
   const [guida, setGuida] = useState<string | null>(null);
@@ -265,10 +265,14 @@ function ElencoVoci(p: { titolo?: string; voci: VoceAperta[]; scarica: (v: VoceA
                 </button>
               );
             })()}
-            {v.haFile && v.contenuto.file && (
-              <button className="secondario" onClick={() => salvaFileAperto(v, () => p.scarica(v)).catch((e) => setErrore(String(e)))}>
-                Scarica «{v.contenuto.file.nome}»
-              </button>
+            {v.documenti.length > 0 && (
+              <div className="documenti">
+                {v.documenti.map((f) => (
+                  <button key={f.id} className="secondario" onClick={() => salvaFileAperto(v, f, () => p.scarica(v, f.id)).catch((e) => setErrore(String(e)))}>
+                    Scarica «{f.nome}»
+                  </button>
+                ))}
+              </div>
             )}
           </li>
         ))}

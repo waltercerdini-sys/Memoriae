@@ -7,7 +7,7 @@ import { Piano, RigaPiano } from './Piano';
 import { SchedaFornitore } from './SchedaFornitore';
 import { Persone } from './Persone';
 import { sincronizzaRilascio, type StatoRilascio } from './rilascio';
-import { aggiornaVoce, aggiungiVoce, leggiVoci, scaricaFile, type AzioneAccount, type ContenutoVoce, type Voce } from './vault';
+import { aggiornaVoce, aggiungiDocumenti, aggiungiVoce, documentiDi, leggiVoci, MAX_DOCUMENTI, rimuoviDocumento, scaricaFile, type AzioneAccount, type ContenutoVoce, type Voce } from './vault';
 
 const TIPI: { tipo: TipoVoce; nome: string; descrizione: string }[] = [
   { tipo: 'account', nome: 'Account', descrizione: 'E-mail, social, banca online, abbonamenti' },
@@ -138,11 +138,18 @@ export function Inventario({
         <h1>{v.contenuto.titolo}</h1>
         {v.emergenza && <p className="pillola">Serve in caso di emergenza</p>}
         {v.contenuto.note && <p className="note">{v.contenuto.note}</p>}
-        {v.haFile && v.contenuto.file && (
-          <button className="secondario" onClick={() => scaricaFile(vaultKey, v).catch((e) => setErrore(String(e)))}>
-            Apri «{v.contenuto.file.nome}»
-          </button>
-        )}
+        <Documenti
+          voce={v}
+          onApri={(f) => scaricaFile(vaultKey, v, f)}
+          onAggiungi={async (files) => {
+            await aggiungiDocumenti(vaultKey, v, files);
+            await ricarica();
+          }}
+          onTogli={async (f) => {
+            await rimuoviDocumento(vaultKey, v, f.id);
+            await ricarica();
+          }}
+        />
         <Volonta
           voce={v}
           persone={persone}
@@ -275,7 +282,10 @@ export function Inventario({
                       {chi.length > 0 && <span className="tenue">Per: {chi.join(', ')}</span>}
                       <span className="dettagli">
                         {v.emergenza && <span className="pillola">Emergenza</span>}
-                        {v.haFile && <span className="pillola chiara">Documento</span>}
+                        {(() => {
+                          const n = documentiDi(v.id, v.contenuto).length;
+                          return n > 0 && <span className="pillola chiara">{n === 1 ? '1 documento' : `${n} documenti`}</span>;
+                        })()}
                       </span>
                     </button>
                   </li>
@@ -393,14 +403,14 @@ function Volonta(p: {
 function NuovaVoce(p: {
   fornitori: Fornitore[];
   onAnnulla: () => void;
-  onSalva: (d: { tipo: TipoVoce; emergenza: boolean; titolo: string; note: string; fornitore?: string; file?: File | null }) => Promise<void>;
+  onSalva: (d: { tipo: TipoVoce; emergenza: boolean; titolo: string; note: string; fornitore?: string; files?: File[] }) => Promise<void>;
 }) {
   const [tipo, setTipo] = useState<TipoVoce | null>(null);
   const [titolo, setTitolo] = useState('');
   const [note, setNote] = useState('');
   const [fornitore, setFornitore] = useState('');
   const [emergenza, setEmergenza] = useState(false);
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [salvo, setSalvo] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
 
@@ -431,7 +441,7 @@ function NuovaVoce(p: {
         setSalvo(true);
         setErrore(null);
         try {
-          await p.onSalva({ tipo, emergenza, titolo: titolo.trim(), note: note.trim(), fornitore: fornitore || undefined, file });
+          await p.onSalva({ tipo, emergenza, titolo: titolo.trim(), note: note.trim(), fornitore: fornitore || undefined, files });
         } catch (err) {
           setErrore(err instanceof Error ? err.message : 'Salvataggio non riuscito');
           setSalvo(false);
@@ -464,10 +474,7 @@ function NuovaVoce(p: {
         Note per chi resta
         <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={5} maxLength={5000} placeholder="Cosa fare, a chi rivolgersi, dove trovare le cose" />
       </label>
-      <label>
-        Documento (facoltativo, massimo 25 MB)
-        <input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-      </label>
+      <ScegliDocumenti files={files} onCambia={setFiles} />
       <label className="spunta">
         <input type="checkbox" checked={emergenza} onChange={(e) => setEmergenza(e.target.checked)} />
         Serve anche in caso di emergenza (incidente, ricovero)
@@ -480,5 +487,134 @@ function NuovaVoce(p: {
         Indietro
       </button>
     </form>
+  );
+}
+
+const dimensione = (b: number) => (b < 1024 * 1024 ? `${Math.max(1, Math.round(b / 1024))} KB` : `${(b / 1024 / 1024).toFixed(1).replace('.', ',')} MB`);
+const MAX_BYTE = 25 * 1024 * 1024;
+
+/** Scelta di uno o più documenti, con elenco di ciò che è stato scelto. */
+function ScegliDocumenti(p: { files: File[]; onCambia: (f: File[]) => void; etichetta?: string; giaPresenti?: number }) {
+  const [avviso, setAvviso] = useState<string | null>(null);
+  const posti = MAX_DOCUMENTI - (p.giaPresenti ?? 0);
+  return (
+    <div className="scegli-documenti">
+      <label>
+        {p.etichetta ?? 'Documenti (facoltativi): puoi sceglierne più di uno, massimo 25 MB ciascuno'}
+        <input
+          type="file"
+          multiple
+          onChange={(e) => {
+            const scelti = Array.from(e.target.files ?? []);
+            const troppoGrandi = scelti.filter((f) => f.size > MAX_BYTE);
+            const validi = [...p.files, ...scelti.filter((f) => f.size <= MAX_BYTE)].slice(0, posti);
+            setAvviso(
+              troppoGrandi.length
+                ? `${troppoGrandi.map((f) => f.name).join(', ')}: più di 25 MB, non aggiunto.`
+                : p.files.length + scelti.length > posti
+                  ? `Al massimo ${MAX_DOCUMENTI} documenti per voce.`
+                  : null,
+            );
+            p.onCambia(validi);
+            e.target.value = '';
+          }}
+        />
+      </label>
+      {p.files.length > 0 && (
+        <ul className="elenco-documenti">
+          {p.files.map((f, i) => (
+            <li key={`${f.name}-${i}`}>
+              <span>
+                {f.name} <span className="tenue">({dimensione(f.size)})</span>
+              </span>
+              <button type="button" className="link" onClick={() => p.onCambia(p.files.filter((_, j) => j !== i))}>
+                Togli
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {avviso && <p className="avviso">{avviso}</p>}
+    </div>
+  );
+}
+
+/** Documenti di una voce: aprire, aggiungerne altri, toglierli. */
+function Documenti(p: {
+  voce: Voce;
+  onApri: (f: ReturnType<typeof documentiDi>[number]) => Promise<void>;
+  onAggiungi: (files: File[]) => Promise<void>;
+  onTogli: (f: ReturnType<typeof documentiDi>[number]) => Promise<void>;
+}) {
+  const documenti = documentiDi(p.voce.id, p.voce.contenuto);
+  const [nuovi, setNuovi] = useState<File[]>([]);
+  const [daTogliere, setDaTogliere] = useState<string | null>(null);
+  const [occupato, setOccupato] = useState(false);
+  const [errore, setErrore] = useState<string | null>(null);
+
+  async function esegui(fn: () => Promise<void>) {
+    setErrore(null);
+    setOccupato(true);
+    try {
+      await fn();
+    } catch (e) {
+      setErrore(e instanceof Error ? e.message : 'Operazione non riuscita');
+    } finally {
+      setOccupato(false);
+    }
+  }
+
+  return (
+    <div className="riquadro">
+      <h2>Documenti</h2>
+      {documenti.length === 0 && <p className="tenue">Nessun documento allegato.</p>}
+      {documenti.length > 0 && (
+        <ul className="elenco-documenti">
+          {documenti.map((f) => (
+            <li key={f.id}>
+              <button className="link" onClick={() => esegui(() => p.onApri(f))}>
+                {f.nome}
+              </button>
+              <span className="tenue">{dimensione(f.dimensione)}</span>
+              {daTogliere === f.id ? (
+                <span className="conferma">
+                  Togliere?{' '}
+                  <button className="link" disabled={occupato} onClick={() => esegui(async () => { await p.onTogli(f); setDaTogliere(null); })}>
+                    Sì, togli
+                  </button>{' '}
+                  <button className="link" onClick={() => setDaTogliere(null)}>
+                    No
+                  </button>
+                </span>
+              ) : (
+                <button className="link" onClick={() => setDaTogliere(f.id)}>
+                  Togli
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {documenti.length < MAX_DOCUMENTI && (
+        <>
+          <ScegliDocumenti files={nuovi} onCambia={setNuovi} etichetta="Aggiungi documenti (anche più di uno)" giaPresenti={documenti.length} />
+          {nuovi.length > 0 && (
+            <button
+              className="primario"
+              disabled={occupato}
+              onClick={() =>
+                esegui(async () => {
+                  await p.onAggiungi(nuovi);
+                  setNuovi([]);
+                })
+              }
+            >
+              {occupato ? 'Cifro e carico…' : nuovi.length === 1 ? 'Carica il documento' : `Carica ${nuovi.length} documenti`}
+            </button>
+          )}
+        </>
+      )}
+      {errore && <p className="avviso">{errore}</p>}
+    </div>
   );
 }

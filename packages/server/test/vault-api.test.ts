@@ -186,39 +186,42 @@ describe('cassaforte e voci', () => {
     });
     expect(created.statusCode).toBe(201);
 
+    // Più file nella stessa voce, ognuno cifrato con un contesto proprio (voce/file).
     const pdf = utf8('%PDF-1.7 estratto conto');
-    const put = await app.inject({
-      method: 'PUT',
-      url: `/v1/cassaforte/voci/${itemId}/file`,
-      headers: { cookie, 'content-type': 'application/octet-stream' },
-      payload: Buffer.from(await encryptFile(itemKey, itemId, pdf)),
-    });
-    expect(put.statusCode).toBe(200);
-
-    const plain = await app.inject({
-      method: 'PUT',
-      url: `/v1/cassaforte/voci/${itemId}/file`,
-      headers: { cookie, 'content-type': 'application/octet-stream' },
-      payload: Buffer.from(pdf),
-    });
-    expect(plain.statusCode).toBe(400);
+    const foto = utf8('JPEG foto del contratto');
+    const [f1, f2] = [randomUUID(), randomUUID()];
+    const carica = async (fid: string, body: Uint8Array) =>
+      app.inject({ method: 'PUT', url: `/v1/cassaforte/voci/${itemId}/file/${fid}`, headers: { cookie, 'content-type': 'application/octet-stream' }, payload: Buffer.from(body) });
+    expect((await carica(f1, await encryptFile(itemKey, `${itemId}/${f1}`, pdf))).statusCode).toBe(200);
+    expect((await carica(f2, await encryptFile(itemKey, `${itemId}/${f2}`, foto))).statusCode).toBe(200);
+    expect((await carica(randomUUID(), pdf)).statusCode).toBe(400); // non cifrato
 
     const list = (await app.inject({ method: 'GET', url: '/v1/cassaforte/voci', headers: { cookie } })).json();
     expect(list.voci).toHaveLength(1);
     const v = list.voci[0];
-    expect(v).toMatchObject({ id: itemId, tipo: 'account', emergenza: true, haFile: true });
+    expect(v).toMatchObject({ id: itemId, tipo: 'account', emergenza: true });
+    expect(v.file.map((f: { id: string }) => f.id)).toEqual([f1, f2]);
     expect(JSON.stringify(list)).not.toContain('PostFinance');
 
     const back: EncryptedItem = { itemId, wrappedItemKey: v.chiaveVoceCifrata, content: v.contenuto };
     const k = await unwrapItemKey(vaultKey, back);
     expect(JSON.parse(fromUtf8(await decryptItem(k, back))).titolo).toBe(secret);
-    const file = await app.inject({ method: 'GET', url: `/v1/cassaforte/voci/${itemId}/file`, headers: { cookie } });
-    expect(fromUtf8(await decryptFile(k, itemId, new Uint8Array(file.rawPayload)))).toBe('%PDF-1.7 estratto conto');
+    const scarica = (fid: string, c = cookie) => app.inject({ method: 'GET', url: `/v1/cassaforte/voci/${itemId}/file/${fid}`, headers: { cookie: c } });
+    expect(fromUtf8(await decryptFile(k, `${itemId}/${f1}`, new Uint8Array((await scarica(f1)).rawPayload)))).toBe('%PDF-1.7 estratto conto');
+    const b2 = new Uint8Array((await scarica(f2)).rawPayload);
+    expect(fromUtf8(await decryptFile(k, `${itemId}/${f2}`, b2))).toBe('JPEG foto del contratto');
+    // Un file non si può spacciare per un altro: il contesto lo lega al suo posto.
+    await expect(decryptFile(k, `${itemId}/${f1}`, b2)).rejects.toThrow();
+
+    // Togliere un file.
+    expect((await app.inject({ method: 'DELETE', url: `/v1/cassaforte/voci/${itemId}/file/${f2}`, headers: { cookie } })).statusCode).toBe(200);
+    expect((await scarica(f2)).statusCode).toBe(404);
+    expect((await app.inject({ method: 'GET', url: '/v1/cassaforte/voci', headers: { cookie } })).json().voci[0].file).toHaveLength(1);
 
     // Un altro utente non vede né tocca la voce.
     const other = await register('Dario', 'dario@example.ch');
     await createVault(other.cookie, other.credentialId);
-    expect((await app.inject({ method: 'GET', url: `/v1/cassaforte/voci/${itemId}/file`, headers: { cookie: other.cookie } })).statusCode).toBe(404);
+    expect((await scarica(f1, other.cookie)).statusCode).toBe(404);
     expect((await app.inject({ method: 'DELETE', url: `/v1/cassaforte/voci/${itemId}`, headers: { cookie: other.cookie } })).statusCode).toBe(404);
 
     // Modifica ed eliminazione.

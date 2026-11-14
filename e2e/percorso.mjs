@@ -74,21 +74,45 @@ await page.getByRole('button', { name: /^Account/ }).click();
 await page.getByLabel('Titolo').fill('Conto PostFinance');
 await page.getByLabel('Servizio').selectOption('paypal');
 await page.getByLabel('Note per chi resta').fill('Consulente: sig. Rossi, filiale di Mendrisio.\nLa procura è nella cassaforte di casa.');
-await page.getByLabel(/Documento/).setInputFiles({ name: 'estratto-conto.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.7 estratto conto di prova') });
+await page.getByLabel(/^Documenti/).setInputFiles([
+  { name: 'estratto-conto.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.7 estratto conto di prova') },
+  { name: 'procura.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.7 procura firmata') },
+]);
+await page.getByText('procura.pdf').waitFor();
 await page.getByLabel(/Serve anche in caso di emergenza/).check();
 await shot('06-nuova-voce');
 await page.getByRole('button', { name: 'Salva nella cassaforte' }).click();
 await page.getByRole('button', { name: /Conto PostFinance/ }).waitFor();
 await shot('07-elenco');
-step('voce con documento salvata');
+await page.getByText('2 documenti').waitFor();
+step('voce con due documenti salvata');
 
 await page.getByRole('button', { name: /Conto PostFinance/ }).click();
 await page.getByRole('heading', { name: 'Conto PostFinance' }).waitFor();
 await shot('08-dettaglio');
-const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: /Apri «estratto-conto.pdf»/ }).click()]);
-const scaricato = readFileSync(await download.path(), 'utf8');
-if (scaricato !== '%PDF-1.7 estratto conto di prova') throw new Error(`File decifrato diverso: ${scaricato}`);
-step('documento scaricato e decifrato correttamente');
+async function scarica(nome, atteso) {
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: nome, exact: true }).click()]);
+  const testo = readFileSync(await download.path(), 'utf8');
+  if (testo !== atteso) throw new Error(`File decifrato diverso: ${testo}`);
+}
+await scarica('estratto-conto.pdf', '%PDF-1.7 estratto conto di prova');
+await scarica('procura.pdf', '%PDF-1.7 procura firmata');
+step('documenti scaricati e decifrati correttamente');
+
+// Aggiungo altri due documenti alla voce esistente e ne tolgo uno.
+await page.getByLabel(/Aggiungi documenti/).setInputFiles([
+  { name: 'contratto.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.7 contratto') },
+  { name: 'foto-tessera.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('JPEG finto') },
+]);
+await page.getByRole('button', { name: 'Carica 2 documenti' }).click();
+await page.getByRole('button', { name: 'foto-tessera.jpg', exact: true }).waitFor();
+await scarica('contratto.pdf', '%PDF-1.7 contratto');
+const riga = page.locator('.elenco-documenti li', { hasText: 'procura.pdf' });
+await riga.getByRole('button', { name: 'Togli' }).click();
+await riga.getByRole('button', { name: 'Sì, togli' }).click();
+await page.getByRole('button', { name: 'procura.pdf', exact: true }).waitFor({ state: 'detached' });
+await shot('08b-documenti');
+step('documenti aggiunti e tolti dal dettaglio');
 
 // Ricarico: la chiave della cassaforte non sopravvive in memoria, va riaperta con la passkey.
 await page.reload();

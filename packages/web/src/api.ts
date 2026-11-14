@@ -48,8 +48,8 @@ export interface VoceRemota {
   emergenza: boolean;
   chiaveVoceCifrata: Envelope;
   contenuto: Envelope;
-  haFile: boolean;
-  dimensioneFile: number | null;
+  /** File cifrati della voce (id e dimensione; il nome è nel contenuto cifrato). */
+  file: { id: string; byte: number }[];
   creataIl: string;
   modificataIl: string;
 }
@@ -125,7 +125,7 @@ export interface VoceCondivisa {
   id: string;
   tipo: TipoVoce;
   contenuto: Envelope;
-  haFile: boolean;
+  file: { id: string; byte: number }[];
 }
 
 export interface DatiRilascio {
@@ -237,11 +237,11 @@ export const api = {
   },
   datiRilascio: (casoId: string) => call<DatiRilascio>('GET', `/v1/fiducia/casi/${casoId}/rilascio`),
   vociCaso: (casoId: string) => call<{ voci: VoceCondivisa[] }>('GET', `/v1/fiducia/casi/${casoId}/voci`),
-  fileCaso: (casoId: string, itemId: string) => bytes(`/v1/fiducia/casi/${casoId}/voci/${itemId}/file`),
+  fileCaso: (casoId: string, itemId: string, fileId: string) => bytes(`/v1/fiducia/casi/${casoId}/voci/${itemId}/file/${fileId}`),
   consegna: (casoId: string, destinatarioId: string, interno: string) => call<{ ok: true }>('POST', `/v1/fiducia/casi/${casoId}/consegne`, { destinatarioId, interno }),
   ricevuti: () => call<{ ricevuti: Ricevuto[] }>('GET', '/v1/ricevuti'),
   vociRicevute: (id: string) => call<{ voci: VoceCondivisa[] }>('GET', `/v1/ricevuti/${id}/voci`),
-  fileRicevuto: (id: string, itemId: string) => bytes(`/v1/ricevuti/${id}/voci/${itemId}/file`),
+  fileRicevuto: (id: string, itemId: string, fileId: string) => bytes(`/v1/ricevuti/${id}/voci/${itemId}/file/${fileId}`),
   mieiCasi: () => call<{ casi: Caso[] }>('GET', '/v1/cassaforte/casi'),
   bloccaCaso: (id: string) => call<{ ok: true }>('POST', `/v1/cassaforte/casi/${id}/blocca`),
   chiudiEmergenza: (id: string) => call<{ ok: true }>('POST', `/v1/cassaforte/casi/${id}/chiudi`),
@@ -260,8 +260,8 @@ export const api = {
   pacchetti: (riferimentoRilascio: string, pacchetti: PacchettoRemoto[]) =>
     call<{ ok: true; numero: number }>('PUT', '/v1/cassaforte/pacchetti', { riferimentoRilascio, pacchetti }),
   eliminaVoce: (id: string) => call<{ ok: true }>('DELETE', `/v1/cassaforte/voci/${id}`),
-  caricaFile: async (id: string, bytes: Uint8Array) => {
-    const res = await fetch(`/v1/cassaforte/voci/${id}/file`, {
+  caricaFile: async (id: string, fileId: string, bytes: Uint8Array) => {
+    const res = await fetch(`/v1/cassaforte/voci/${id}/file/${fileId}`, {
       method: 'PUT',
       credentials: 'same-origin',
       headers: { 'content-type': 'application/octet-stream' },
@@ -269,11 +269,8 @@ export const api = {
     });
     if (!res.ok) throw new ApiError(res.status, (await res.json().catch(() => null))?.errore ?? 'Caricamento non riuscito');
   },
-  scaricaFile: async (id: string) => {
-    const res = await fetch(`/v1/cassaforte/voci/${id}/file`, { credentials: 'same-origin' });
-    if (!res.ok) throw new ApiError(res.status, 'File non disponibile');
-    return new Uint8Array(await res.arrayBuffer());
-  },
+  scaricaFile: (id: string, fileId: string) => bytes(`/v1/cassaforte/voci/${id}/file/${fileId}`),
+  eliminaFile: (id: string, fileId: string) => call<{ ok: true }>('DELETE', `/v1/cassaforte/voci/${id}/file/${fileId}`),
   controllo: () => call<StatoControllo>('GET', '/v1/cassaforte/controllo'),
   impostaControllo: (intervalloGiorni: number, inPausa: boolean) => call<{ ok: true }>('PUT', '/v1/cassaforte/controllo', { intervalloGiorni, inPausa }),
   sonoQui: () => call<{ ok: true }>('POST', '/v1/cassaforte/sono-qui'),

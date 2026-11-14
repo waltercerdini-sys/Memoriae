@@ -21,6 +21,7 @@ import { blobKey, type BlobStore } from '../storage/blobs';
 import type { KeyCustody } from '../storage/custody';
 import { requireUser } from './auth';
 import { isFiduciary } from './persons';
+import { filesByItem, sendItemFile } from './vault';
 
 /**
  * Attivazione: richiesta del fiduciario → verifica dell'operatore → attesa (il proprietario può bloccare)
@@ -517,16 +518,16 @@ export async function activationRoutes(
   async function sharedItems(vaultId: string, scope: ReleaseScope) {
     const where = scope === 'emergenza' ? and(eq(items.vaultId, vaultId), eq(items.isEmergency, true)) : eq(items.vaultId, vaultId);
     const rows = await db.select().from(items).where(where).orderBy(asc(items.createdAt));
-    return rows.map((r) => ({ id: r.id, tipo: r.type, contenuto: r.content, haFile: !!r.blobKey }));
+    const files = await filesByItem(db, rows.map((r) => r.id));
+    return rows.map((r) => ({ id: r.id, tipo: r.type, contenuto: r.content, file: files.get(r.id) ?? [] }));
   }
 
-  async function sharedFile(vaultId: string, scope: ReleaseScope, itemId: string, reply: FastifyReply) {
+  async function sharedFile(vaultId: string, scope: ReleaseScope, itemId: string, fileId: string, reply: FastifyReply) {
     const [it] = await db.select().from(items).where(and(eq(items.id, itemId), eq(items.vaultId, vaultId))).limit(1);
-    if (!it?.blobKey || (scope === 'emergenza' && !it.isEmergency)) return reply.code(404).send({ errore: 'File non trovato' });
-    const bytes = await blobs.get(it.blobKey);
-    if (!bytes) return reply.code(404).send({ errore: 'File non trovato' });
-    return reply.type('application/octet-stream').send(Buffer.from(bytes));
+    if (!it || (scope === 'emergenza' && !it.isEmergency)) return reply.code(404).send({ errore: 'File non trovato' });
+    return sendItemFile(db, blobs, itemId, fileId, reply);
   }
+
 
   app.get('/v1/fiducia/casi/:id/voci', { preHandler: auth }, async (req, reply) => {
     const r = await releasedForFiduciary(req, reply);
@@ -534,12 +535,12 @@ export async function activationRoutes(
     return { voci: await sharedItems(r.c.vaultId, r.c.scope) };
   });
 
-  app.get('/v1/fiducia/casi/:id/voci/:itemId/file', { preHandler: auth }, async (req, reply) => {
-    const q = z.object({ itemId: z.string().uuid() }).safeParse(req.params);
+  app.get('/v1/fiducia/casi/:id/voci/:itemId/file/:fileId', { preHandler: auth }, async (req, reply) => {
+    const q = z.object({ itemId: z.string().uuid(), fileId: z.string().uuid() }).safeParse(req.params);
     if (!q.success) return reply.code(404).send({ errore: 'File non trovato' });
     const r = await releasedForFiduciary(req, reply);
     if (!r) return;
-    return sharedFile(r.c.vaultId, r.c.scope, q.data.itemId, reply);
+    return sharedFile(r.c.vaultId, r.c.scope, q.data.itemId, q.data.fileId, reply);
   });
 
   /** Il browser del fiduciario ha tolto lo strato esterno: lo strato interno (cifrato per il destinatario) va a lui. */
@@ -610,10 +611,10 @@ export async function activationRoutes(
     return { voci: await sharedItems(row.k.vaultId, row.k.scope) };
   });
 
-  app.get('/v1/ricevuti/:id/voci/:itemId/file', { preHandler: auth }, async (req, reply) => {
-    const q = z.object({ id: z.string().uuid(), itemId: z.string().uuid() }).safeParse(req.params);
+  app.get('/v1/ricevuti/:id/voci/:itemId/file/:fileId', { preHandler: auth }, async (req, reply) => {
+    const q = z.object({ id: z.string().uuid(), itemId: z.string().uuid(), fileId: z.string().uuid() }).safeParse(req.params);
     const row = q.success ? await myDelivery(req.user!.id, q.data.id) : null;
     if (!row || !q.success) return reply.code(404).send({ errore: 'Non trovato' });
-    return sharedFile(row.k.vaultId, row.k.scope, q.data.itemId, reply);
+    return sharedFile(row.k.vaultId, row.k.scope, q.data.itemId, q.data.fileId, reply);
   });
 }

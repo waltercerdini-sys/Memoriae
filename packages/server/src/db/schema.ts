@@ -138,7 +138,7 @@ export const items = pgTable('items', {
   wrappedItemKey: jsonb('wrapped_item_key').notNull(),
   /** Contenuto piccolo cifrato (testo, metadati). */
   content: jsonb('content'),
-  /** Riferimento al file cifrato nell'archivio oggetti, se la voce ha un file. */
+  /** Vecchio campo (un solo file per voce): i file ora stanno in item_files. */
   blobKey: text('blob_key'),
   blobSize: bigint('blob_size', { mode: 'number' }),
   /** Fornitore del catalogo a cui si riferisce la voce, se è un account. */
@@ -146,6 +146,19 @@ export const items = pgTable('items', {
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 }, (t) => [index('items_vault_idx').on(t.vaultId)]);
+
+/**
+ * File cifrati di una voce (più di uno per voce). Nome e tipo del file stanno nel contenuto
+ * cifrato della voce: qui il server vede solo dimensione e data.
+ */
+export const itemFiles = pgTable('item_files', {
+  id: uuid('id').primaryKey(),
+  itemId: uuid('item_id').notNull().references(() => items.id, { onDelete: 'cascade' }),
+  vaultId: uuid('vault_id').notNull().references(() => vaults.id, { onDelete: 'cascade' }),
+  blobKey: text('blob_key').notNull(),
+  size: bigint('size', { mode: 'number' }).notNull(),
+  createdAt: createdAt(),
+}, (t) => [index('item_files_item_idx').on(t.itemId)]);
 
 // ---------------------------------------------------------------------------
 // Persone, chiavi e pacchetti

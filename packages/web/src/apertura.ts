@@ -11,7 +11,7 @@ import {
   type PersonKeyPair,
 } from '@memoriae/crypto';
 import { api, type DatiRilascio, type VoceCondivisa } from './api';
-import type { ContenutoVoce } from './vault';
+import { contestoFile, documentiDi, type ContenutoVoce, type FileVoce } from './vault';
 
 /**
  * Apertura dopo un rilascio. Tutto avviene qui, nel browser:
@@ -22,7 +22,8 @@ import type { ContenutoVoce } from './vault';
 export interface VoceAperta {
   id: string;
   contenuto: ContenutoVoce;
-  haFile: boolean;
+  /** Documenti presenti davvero sul server (con nome e tipo dal contenuto cifrato). */
+  documenti: FileVoce[];
   itemKey: Uint8Array;
 }
 
@@ -54,7 +55,9 @@ async function apriVoci(voci: VoceCondivisa[], chiavi: PackageItemKey[]): Promis
     const v = voci.find((x) => x.id === k.itemId);
     if (!v) continue; // voce cancellata dopo l'ultima preparazione
     const plain = await decryptItem(k.itemKey, { itemId: v.id, wrappedItemKey: v.contenuto, content: v.contenuto });
-    out.push({ id: v.id, contenuto: JSON.parse(fromUtf8(plain)) as ContenutoVoce, haFile: v.haFile, itemKey: k.itemKey });
+    const contenuto = JSON.parse(fromUtf8(plain)) as ContenutoVoce;
+    const presenti = new Set(v.file.map((f) => f.id));
+    out.push({ id: v.id, contenuto, documenti: documentiDi(v.id, contenuto).filter((f) => presenti.has(f.id)), itemKey: k.itemKey });
   }
   return out;
 }
@@ -90,9 +93,9 @@ export async function apriRicevuto(id: string, interno: string, vaultKey: Uint8A
   return apriVoci(voci, await openPackageInner('sealed-to-recipient', interno, chiavi));
 }
 
-export async function salvaFileAperto(voce: VoceAperta, scarica: () => Promise<Uint8Array>): Promise<void> {
-  const bytes = await decryptFile(voce.itemKey, voce.id, await scarica());
-  salvaBytes(bytes, voce.contenuto.file?.nome ?? 'documento', voce.contenuto.file?.tipo);
+export async function salvaFileAperto(voce: VoceAperta, f: FileVoce, scarica: () => Promise<Uint8Array>): Promise<void> {
+  const bytes = await decryptFile(voce.itemKey, contestoFile(voce.id, f.id), await scarica());
+  salvaBytes(bytes, f.nome || 'documento', f.tipo);
 }
 
 export function salvaBytes(bytes: Uint8Array, nome: string, tipo = 'application/octet-stream'): void {

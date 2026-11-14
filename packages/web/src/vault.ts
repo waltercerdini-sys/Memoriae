@@ -33,15 +33,35 @@ export interface ContenutoVoce {
   /** Volontà: a chi va questa voce (id delle persone) e cosa fare dell'account. Restano cifrate. */
   destinatari?: string[];
   azione?: AzioneAccount;
+  /** Documenti allegati: nome e tipo restano cifrati qui; il server vede solo id e dimensione. */
+  files?: FileVoce[];
+  /** Versione precedente: un solo documento, con lo stesso id della voce. */
   file?: { nome: string; tipo: string; dimensione: number };
 }
+
+export interface FileVoce {
+  id: string;
+  nome: string;
+  tipo: string;
+  dimensione: number;
+}
+
+/** Tutti i documenti di una voce, compreso quello della versione precedente. */
+export function documentiDi(itemId: string, c: ContenutoVoce): FileVoce[] {
+  if (c.files) return c.files;
+  return c.file ? [{ id: itemId, ...c.file }] : [];
+}
+
+/** Contesto di cifratura di un file: lega il file alla sua voce e al suo posto. */
+export const contestoFile = (itemId: string, fileId: string) => (fileId === itemId ? itemId : `${itemId}/${fileId}`);
+
+export const MAX_DOCUMENTI = 20;
 
 export interface Voce {
   id: string;
   tipo: TipoVoce;
   emergenza: boolean;
   contenuto: ContenutoVoce;
-  haFile: boolean;
   remota: VoceRemota;
 }
 
@@ -140,28 +160,55 @@ export async function leggiVoci(vaultKey: Uint8Array): Promise<Voce[]> {
       const enc = comeEncrypted(r);
       const k = await unwrapItemKey(vaultKey, enc);
       const contenuto = JSON.parse(fromUtf8(await decryptItem(k, enc))) as ContenutoVoce;
-      return { id: r.id, tipo: r.tipo, emergenza: r.emergenza, contenuto, haFile: r.haFile, remota: r };
+      return { id: r.id, tipo: r.tipo, emergenza: r.emergenza, contenuto, remota: r };
     }),
   );
 }
 
+const metaFile = (f: File): FileVoce => ({ id: crypto.randomUUID(), nome: f.name, tipo: f.type || 'application/octet-stream', dimensione: f.size });
+
+async function caricaDocumenti(itemId: string, itemKey: Uint8Array, files: File[], meta: FileVoce[]): Promise<void> {
+  for (let i = 0; i < files.length; i++) {
+    const bytes = new Uint8Array(await files[i]!.arrayBuffer());
+    await api.caricaFile(itemId, meta[i]!.id, await encryptFile(itemKey, contestoFile(itemId, meta[i]!.id), bytes));
+  }
+}
+
 export async function aggiungiVoce(
   vaultKey: Uint8Array,
-  dati: { tipo: TipoVoce; emergenza: boolean; titolo: string; note: string; fornitore?: string; file?: File | null },
+  dati: { tipo: TipoVoce; emergenza: boolean; titolo: string; note: string; fornitore?: string; files?: File[] },
 ): Promise<void> {
   const id = crypto.randomUUID();
+  const files = dati.files ?? [];
+  const meta = files.map(metaFile);
   const contenuto: ContenutoVoce = {
     titolo: dati.titolo,
     note: dati.note,
     ...(dati.fornitore ? { fornitore: dati.fornitore } : {}),
-    ...(dati.file ? { file: { nome: dati.file.name, tipo: dati.file.type || 'application/octet-stream', dimensione: dati.file.size } } : {}),
+    ...(meta.length ? { files: meta } : {}),
   };
   const { item, itemKey } = await encryptItem(vaultKey, id, utf8(JSON.stringify(contenuto)));
   await api.creaVoce({ id, tipo: dati.tipo, emergenza: dati.emergenza, chiaveVoceCifrata: item.wrappedItemKey, contenuto: item.content });
-  if (dati.file) {
-    const bytes = new Uint8Array(await dati.file.arrayBuffer());
-    await api.caricaFile(id, await encryptFile(itemKey, id, bytes));
-  }
+  await caricaDocumenti(id, itemKey, files, meta);
+}
+
+/** Aggiunge documenti a una voce esistente. */
+export async function aggiungiDocumenti(vaultKey: Uint8Array, voce: Voce, files: File[]): Promise<void> {
+  const attuali = documentiDi(voce.id, voce.contenuto);
+  if (attuali.length + files.length > MAX_DOCUMENTI) throw new Error(`Al massimo ${MAX_DOCUMENTI} documenti per voce`);
+  const k = await unwrapItemKey(vaultKey, comeEncrypted(voce.remota));
+  const meta = files.map(metaFile);
+  // Prima i file, poi l'elenco: se il caricamento si interrompe, la voce non punta a file mancanti.
+  await caricaDocumenti(voce.id, k, files, meta);
+  const { file: _vecchio, ...resto } = voce.contenuto;
+  await aggiornaVoce(vaultKey, voce, { ...resto, files: [...attuali, ...meta] }, voce.emergenza);
+}
+
+/** Toglie un documento da una voce. */
+export async function rimuoviDocumento(vaultKey: Uint8Array, voce: Voce, fileId: string): Promise<void> {
+  const { file: _vecchio, ...resto } = voce.contenuto;
+  await aggiornaVoce(vaultKey, voce, { ...resto, files: documentiDi(voce.id, voce.contenuto).filter((f) => f.id !== fileId) }, voce.emergenza);
+  await api.eliminaFile(voce.id, fileId);
 }
 
 /** Aggiorna il contenuto (per esempio le volontà) mantenendo la chiave della voce. */
@@ -176,14 +223,14 @@ export async function chiaveVoce(vaultKey: Uint8Array, voce: Voce): Promise<Uint
   return unwrapItemKey(vaultKey, comeEncrypted(voce.remota));
 }
 
-export async function scaricaFile(vaultKey: Uint8Array, voce: Voce): Promise<void> {
+export async function scaricaFile(vaultKey: Uint8Array, voce: Voce, f: FileVoce): Promise<void> {
   const k = await unwrapItemKey(vaultKey, comeEncrypted(voce.remota));
-  const bytes = await decryptFile(k, voce.id, await api.scaricaFile(voce.id));
-  const blob = new Blob([bytes.slice().buffer], { type: voce.contenuto.file?.tipo ?? 'application/octet-stream' });
+  const bytes = await decryptFile(k, contestoFile(voce.id, f.id), await api.scaricaFile(voce.id, f.id));
+  const blob = new Blob([bytes.slice().buffer], { type: f.tipo || 'application/octet-stream' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = voce.contenuto.file?.nome ?? 'documento';
+  a.download = f.nome || 'documento';
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
