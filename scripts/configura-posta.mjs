@@ -2,8 +2,8 @@
  * Attiva l'invio vero delle e-mail anche nelle prove:  npm run posta
  *
  * Chiede la casella da cui spedire (Infomaniak, Gmail o altro), prova a inviare un'e-mail
- * a quella stessa casella e, se va bene, salva le impostazioni nel file .env della cartella.
- * Il file .env resta solo sul tuo computer: non finisce su GitHub.
+ * a quella stessa casella e, se va bene, salva le impostazioni nel file .env della cartella dei dati
+ * (MEMORIAE-prova), così restano anche quando scarichi una nuova versione. Non finisce su GitHub.
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -12,7 +12,8 @@ import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const envPath = join(root, '.env');
+import { fileEnv as envPath, preparaCartellaDati } from './cartella-dati.mjs';
+preparaCartellaDati();
 const require = createRequire(join(root, 'packages', 'server', 'package.json'));
 let nodemailer;
 try {

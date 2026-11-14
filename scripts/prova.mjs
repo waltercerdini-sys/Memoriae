@@ -1,19 +1,22 @@
 /**
  * Avvia MEMORIAE sul proprio computer per provarla, con un solo comando:  npm run prova
  *
- * Non serve installare Postgres: il database è una cartella (data/db) gestita da PGlite.
+ * Non serve installare Postgres: il database è una cartella gestita da PGlite.
+ * I dati restano nella cartella MEMORIAE-prova (vedi cartella-dati.mjs) e sopravvivono agli aggiornamenti.
  * Le e-mail non vengono spedite: compaiono qui nel terminale.
  * Per fermare tutto: Ctrl+C.
  */
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dati as data, fileEnv, preparaCartellaDati } from './cartella-dati.mjs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const data = join(root, 'data');
-mkdirSync(data, { recursive: true });
+const { nuova, spostati } = preparaCartellaDati();
+if (spostati.length) console.log(`I dati delle prove ora stanno in ${data}: li ho copiati dalla cartella del programma.`);
+else if (nuova) console.log(`I dati delle prove staranno in ${data}: restano anche quando scarichi una nuova versione.`);
 
 const [major] = process.versions.node.split('.').map(Number);
 if (major < 20) {
@@ -28,6 +31,7 @@ const env = {
   BLOB_DIR: join(data, 'file'),
   MAIL_OUTBOX: join(data, 'posta.log'),
   CUSTODY_KEY_FILE: join(data, 'custodia.key'),
+  MEMORIAE_ENV_FILE: fileEnv,
   LOG_LEVEL: 'warn',
   HOST: 'localhost',
   // Prove: l'attesa dopo la verifica dura 2 minuti invece di 14 giorni / 72 ore,

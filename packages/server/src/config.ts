@@ -2,9 +2,12 @@ import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 
-/** Carica il file .env nella cartella principale del progetto, se esiste (le variabili già impostate vincono). */
+/**
+ * Carica il file .env, se esiste (le variabili già impostate vincono): quello indicato da MEMORIAE_ENV_FILE
+ * (npm run prova lo tiene nella cartella dei dati) oppure quello nella cartella principale del progetto.
+ */
 export function loadEnvFile(): void {
-  const path = fileURLToPath(new URL('../../../.env', import.meta.url));
+  const path = process.env.MEMORIAE_ENV_FILE ?? fileURLToPath(new URL('../../../.env', import.meta.url));
   if (existsSync(path)) process.loadEnvFile(path);
 }
 

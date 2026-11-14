@@ -31,13 +31,13 @@ Serve solo **Node.js** (installer da https://nodejs.org, versione LTS). Poi, nel
 npm run prova   # installa ciò che serve (se manca), avvia tutto e apre il browser su http://localhost:5173
 ```
 
-Non serve Postgres: i dati di prova stanno nella cartella `data/` (si può cancellare per ricominciare).
+Non serve Postgres: i dati di prova stanno nella cartella `MEMORIAE-prova` della cartella Inizio (su Mac `~/MEMORIAE-prova`), fuori dal programma: restano quando scarichi una nuova versione. Per ricominciare da zero, cancellala (e cancella le passkey di «localhost» in Password). Un'altra cartella: variabile `MEMORIAE_DATI`.
 Le e-mail (codici, inviti, promemoria, collegamenti «blocca») compaiono nel terminale. Per fermare: Ctrl+C.
 
 Per far partire davvero le e-mail anche nelle prove (inviti, promemoria, codici), una volta sola:
 
 ```bash
-npm run posta     # chiede la casella (Infomaniak, Gmail o altro), invia una prova e salva tutto nel file .env
+npm run posta     # chiede la casella (Infomaniak, Gmail o altro), invia una prova e salva tutto nel file .env di MEMORIAE-prova
 ```
 
 Le e-mail restano comunque anche nel terminale. I collegamenti dentro le e-mail puntano a http://localhost:5173:
