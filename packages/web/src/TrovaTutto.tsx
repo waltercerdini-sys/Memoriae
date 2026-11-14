@@ -8,26 +8,27 @@ type Fonte = 'apple' | 'chrome' | 'firefox' | 'bitwarden' | 'altro';
 const FONTI: { id: Fonte; nome: string; passi: string[] }[] = [
   {
     id: 'apple',
-    nome: 'Mac o iPhone',
+    nome: 'Safari, Mac o iPhone',
     passi: [
-      'Sul Mac apri l\'app Password (oppure Safari › Impostazioni › Password).',
+      'Sul Mac apri l\'app Password (Comando ⌘ + Spazio, scrivi «Password»). Da Safari: Safari › Impostazioni › Password.',
       'Menu File › Esporta tutte le password in un file…',
-      'Salva il file sulla Scrivania: si chiama per esempio «Password.csv».',
+      'Conferma con la password del Mac e salva il file sulla Scrivania.',
+      'Contiene le password di Safari, iPhone e iPad, non quelle di Chrome o Firefox.',
     ],
   },
   {
     id: 'chrome',
     nome: 'Chrome o Edge',
     passi: [
-      'Apri Chrome › menu ⋮ › Password e compilazione automatica › Gestore delle password di Google.',
-      'Impostazioni › Esporta password › Scarica file.',
-      'Il file si chiama «Chrome Passwords.csv» e finisce nella cartella Download.',
+      'Scrivi nella barra degli indirizzi di Chrome: chrome://password-manager/settings e premi Invio.',
+      'Tocca «Esporta password», poi «Scarica file».',
+      'Conferma con la password del Mac: il file «Chrome Passwords.csv» finisce nella cartella Download.',
     ],
   },
   {
     id: 'firefox',
     nome: 'Firefox',
-    passi: ['Scrivi about:logins nella barra degli indirizzi.', 'Menu ⋯ in alto a destra › Esporta credenziali.', 'Salva il file «logins.csv».'],
+    passi: ['Scrivi about:logins nella barra degli indirizzi e premi Invio.', 'Menu ⋯ in alto a destra › Esporta credenziali.', 'Conferma e salva il file «logins.csv».'],
   },
   {
     id: 'bitwarden',
