@@ -365,6 +365,8 @@ export const cardOrders = pgTable('card_orders', {
   status: cardOrderStatusEnum('status').notNull().default('in-attesa'),
   gift: boolean('gift').notNull().default(false),
   shippingName: text('shipping_name'),
+  /** «Presso» (c/o): casa per anziani, parenti, un altro destinatario. */
+  shippingCareOf: text('shipping_care_of'),
   shippingLine1: text('shipping_line1'),
   shippingLine2: text('shipping_line2'),
   shippingPostalCode: text('shipping_postal_code'),

@@ -147,7 +147,7 @@ export function CartaToccata() {
 /** Pagina di prova del pagamento delle carte: chiede l'indirizzo come farebbe Stripe. Non si muove denaro. */
 export function PagamentoCarteProva({ id }: { id: string }) {
   const [info, setInfo] = useState<{ quantita: number; chf: number; regalo: boolean; pagato: boolean } | null>(null);
-  const [a, setA] = useState<IndirizzoCarta>({ nome: '', riga1: '', riga2: '', cap: '', citta: '', paese: 'CH' });
+  const [a, setA] = useState<IndirizzoCarta>({ nome: '', presso: '', riga1: '', riga2: '', cap: '', citta: '', paese: 'CH' });
   const [errore, setErrore] = useState<string | null>(null);
   useEffect(() => {
     api.ordineCarteProva(id).then(setInfo).catch((e: Error) => setErrore(e.message));
@@ -180,6 +180,10 @@ export function PagamentoCarteProva({ id }: { id: string }) {
       <h2>Indirizzo di spedizione</h2>
       {info.regalo && <p className="tenue">È un regalo: puoi scrivere l'indirizzo della persona che la riceverà.</p>}
       {campo('nome', 'Nome e cognome', { required: true, autoComplete: 'name' })}
+      {campo('presso', 'Presso (c/o), facoltativo', { maxLength: 120, placeholder: 'Es. Casa anziani Al Lago, oppure famiglia Bernasconi' })}
+      <p className="tenue">
+        Se la carta va recapitata in una casa per anziani, da un parente o a un altro indirizzo, scrivi qui presso chi. Il postino la consegnerà lì.
+      </p>
       {campo('riga1', 'Via e numero', { required: true, autoComplete: 'address-line1' })}
       {campo('riga2', 'Complemento (facoltativo)', { autoComplete: 'address-line2' })}
       <div className="riga-campi">
@@ -387,6 +391,12 @@ export function OperatoreCarte() {
           <address>
             {o.indirizzo.nome}
             <br />
+            {o.indirizzo.presso && (
+              <>
+                c/o {o.indirizzo.presso}
+                <br />
+              </>
+            )}
             {o.indirizzo.riga1}
             {o.indirizzo.riga2 && (
               <>

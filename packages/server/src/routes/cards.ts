@@ -19,6 +19,7 @@ const hash = (t: string) => createHash('sha256').update(t).digest('hex');
 const Uuid = z.object({ id: z.string().uuid() });
 const Indirizzo = z.object({
   nome: z.string().trim().min(1).max(120),
+  presso: z.string().trim().max(120).optional().nullable(),
   riga1: z.string().trim().min(1).max(200),
   riga2: z.string().trim().max(200).optional().nullable(),
   cap: z.string().trim().regex(/^\d{4}$/, 'NPA di 4 cifre'),
@@ -64,7 +65,7 @@ export async function cardRoutes(
           chf: x.amountChf,
           stato: x.status,
           regalo: x.gift,
-          spedizione: x.shippingName ? `${x.shippingName}, ${x.shippingPostalCode} ${x.shippingCity}` : null,
+          spedizione: x.shippingName ? `${x.shippingName}${x.shippingCareOf ? `, c/o ${x.shippingCareOf}` : ''}, ${x.shippingPostalCode} ${x.shippingCity}` : null,
           spedito: x.shippedAt,
           tracking: x.tracking,
           creatoIl: x.createdAt,
@@ -235,7 +236,7 @@ export async function cardRoutes(
         pagatoIl: x.paidAt,
         speditoIl: x.shippedAt,
         tracking: x.tracking,
-        indirizzo: { nome: x.shippingName, riga1: x.shippingLine1, riga2: x.shippingLine2, cap: x.shippingPostalCode, citta: x.shippingCity, paese: x.shippingCountry },
+        indirizzo: { nome: x.shippingName, presso: x.shippingCareOf, riga1: x.shippingLine1, riga2: x.shippingLine2, cap: x.shippingPostalCode, citta: x.shippingCity, paese: x.shippingCountry },
         carte: carteOrdini.filter((c) => c.orderId === x.id).map((c) => c.uid),
       })),
     };

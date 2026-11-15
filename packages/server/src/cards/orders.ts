@@ -11,7 +11,7 @@ export async function markCardOrderPaid(db: Database, mailer: Mailer, orderId: s
     .set({
       status: 'pagato',
       paidAt: new Date(),
-      ...(a ? { shippingName: a.nome, shippingLine1: a.riga1, shippingLine2: a.riga2 ?? null, shippingPostalCode: a.cap, shippingCity: a.citta, shippingCountry: a.paese } : {}),
+      ...(a ? { shippingName: a.nome, shippingCareOf: a.presso?.trim() || null, shippingLine1: a.riga1, shippingLine2: a.riga2 ?? null, shippingPostalCode: a.cap, shippingCity: a.citta, shippingCountry: a.paese } : {}),
     })
     .where(and(eq(cardOrders.id, orderId), eq(cardOrders.status, 'in-attesa')))
     .returning();
@@ -24,7 +24,7 @@ export async function markCardOrderPaid(db: Database, mailer: Mailer, orderId: s
       subject: 'MEMORIAE – grazie, la tua Carta MEMORIAE è in preparazione',
       text:
         `Ciao ${u.name.split(' ')[0]},\nabbiamo ricevuto il pagamento per ${o.quantity === 1 ? 'una carta' : `${o.quantity} carte`} (CHF ${o.amountChf}).\n` +
-        (a ? `La spediamo a: ${a.nome}, ${a.riga1}${a.riga2 ? `, ${a.riga2}` : ''}, ${a.cap} ${a.citta}.\n` : '') +
+        (a ? `La spediamo a: ${a.nome}${a.presso?.trim() ? `, c/o ${a.presso.trim()}` : ''}, ${a.riga1}${a.riga2 ? `, ${a.riga2}` : ''}, ${a.cap} ${a.citta}.\n` : '') +
         `Quando la ricevi, avvicinala al telefono con MEMORIAE aperta per attivarla.`,
     });
   }

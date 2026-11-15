@@ -186,5 +186,7 @@ Prima del lancio il nucleo di cifratura e il flusso di attivazione devono passar
 - La carta può solo **avvisare** le persone di fiducia (al massimo 3 avvisi al giorno) e mostrare il nome abbreviato:
   non apre mai la cassaforte. Si attiva quando la proprietaria la avvicina con MEMORIAE aperta; si disattiva dall'app.
 - Ordine: CHF 25 a carta, pagamento con indirizzo di spedizione (solo CH e LI), conservato solo per l'ordine.
+  Campo facoltativo «Presso (c/o)» per chi vive in una casa per anziani o da parenti (su Stripe è un campo personalizzato).
+- Fornitore delle carte: Cardnology (Sasso Marconi, BO). Chip richiesto: NTAG 424 DNA con SUN (SDM) attivo.
 - In prova, Operatore › «Prova la carta …» genera il collegamento che scriverebbe il chip: si prova tutto senza carta vera.
 - In produzione il server web deve servire `index.html` anche per l'indirizzo `/c` (come per tutte le pagine dell'app).

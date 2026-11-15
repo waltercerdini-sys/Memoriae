@@ -100,6 +100,8 @@ export type EsitoCarta =
   | { esito: 'valida'; nome: string; token: string; tua: boolean; fiducia: boolean };
 export interface IndirizzoCarta {
   nome: string;
+  /** Presso (c/o): casa per anziani, parenti o un altro destinatario. */
+  presso?: string;
   riga1: string;
   riga2?: string;
   cap: string;
@@ -114,7 +116,7 @@ export interface OrdineOperatore {
   pagatoIl: string;
   speditoIl: string | null;
   tracking: string | null;
-  indirizzo: { nome: string | null; riga1: string | null; riga2: string | null; cap: string | null; citta: string | null; paese: string | null };
+  indirizzo: { nome: string | null; presso: string | null; riga1: string | null; riga2: string | null; cap: string | null; citta: string | null; paese: string | null };
   carte: string[];
 }
 

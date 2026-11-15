@@ -48,12 +48,13 @@ describe('Carta MEMORIAE (NFC)', () => {
     const orderId = new URL(ord.json().url).searchParams.get('ordine-carte')!;
     expect((await req(rosa, 'GET', `/v1/carte/ordini/${orderId}`)).json()).toMatchObject({ quantita: 2, chf: 50, pagato: false });
     expect((await req(rosa, 'POST', `/v1/carte/ordini/${orderId}/paga-prova`, { nome: 'Rosa Bianchi', riga1: 'Via Lunga 1', cap: '123', citta: 'Arogno', paese: 'CH' })).statusCode).toBe(400);
-    expect((await req(rosa, 'POST', `/v1/carte/ordini/${orderId}/paga-prova`, { nome: 'Rosa Bianchi', riga1: 'Via Lunga 1', cap: '6822', citta: 'Arogno', paese: 'CH' })).statusCode).toBe(200);
+    expect((await req(rosa, 'POST', `/v1/carte/ordini/${orderId}/paga-prova`, { nome: 'Rosa Bianchi', presso: 'Casa anziani Al Lago', riga1: 'Via Lunga 1', cap: '6822', citta: 'Arogno', paese: 'CH' })).statusCode).toBe(200);
     expect(mailer.sent.at(-1)).toMatchObject({ to: rosa.email, subject: expect.stringContaining('in preparazione') });
+    expect(mailer.sent.at(-1)!.text).toContain('c/o Casa anziani Al Lago');
 
     // Operatore (in prova: chiunque): abbina le carte e spedisce.
-    const ordini = (await req(anna, 'GET', '/v1/operatore/carte/ordini')).json().ordini as { id: string; indirizzo: { citta: string } }[];
-    expect(ordini.find((o) => o.id === orderId)!.indirizzo.citta).toBe('Arogno');
+    const ordini = (await req(anna, 'GET', '/v1/operatore/carte/ordini')).json().ordini as { id: string; indirizzo: { citta: string; presso: string | null } }[];
+    expect(ordini.find((o) => o.id === orderId)!.indirizzo).toMatchObject({ citta: 'Arogno', presso: 'Casa anziani Al Lago' });
     const prog = (await req(anna, 'GET', '/v1/operatore/carte/programma?uid=04de5f1eacc041')).json();
     expect(prog.chiaveFile).toMatch(/^[0-9A-F]{32}$/);
     expect(prog.collegamento).toContain('/c?picc=');

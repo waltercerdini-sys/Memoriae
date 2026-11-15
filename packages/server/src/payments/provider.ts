@@ -35,6 +35,8 @@ export interface CardCheckoutRequest {
 
 export interface IndirizzoSpedizione {
   nome: string;
+  /** Presso (c/o), per esempio una casa per anziani o un parente. */
+  presso?: string | null;
   riga1: string;
   riga2?: string | null;
   cap: string;
@@ -164,6 +166,12 @@ export class StripeProvider implements PaymentProvider {
       // Spedizione solo in Svizzera e Liechtenstein; l'indirizzo può essere di chi riceve il regalo.
       'shipping_address_collection[allowed_countries][0]': 'CH',
       'shipping_address_collection[allowed_countries][1]': 'LI',
+      // «Presso» (c/o): chi vive in una casa per anziani o da parenti riceve la carta lì.
+      'custom_fields[0][key]': 'presso',
+      'custom_fields[0][label][type]': 'custom',
+      'custom_fields[0][label][custom]': 'Presso (c/o), facoltativo',
+      'custom_fields[0][type]': 'text',
+      'custom_fields[0][optional]': 'true',
       client_reference_id: req.userId,
       customer_email: req.email,
       'metadata[ordineCarte]': req.orderId,
@@ -194,7 +202,10 @@ export class StripeProvider implements PaymentProvider {
             kind: 'carte-pagate',
             orderId: String(o.metadata.ordineCarte),
             spedizione: a
-              ? { nome: String(sd.name ?? ''), riga1: String(a.line1 ?? ''), riga2: a.line2 ?? null, cap: String(a.postal_code ?? ''), citta: String(a.city ?? ''), paese: String(a.country ?? '') }
+              ? {
+                  nome: String(sd.name ?? ''),
+                  presso: (o.custom_fields as { key: string; text?: { value?: string | null } }[] | undefined)?.find((f) => f.key === 'presso')?.text?.value ?? null,
+                  riga1: String(a.line1 ?? ''), riga2: a.line2 ?? null, cap: String(a.postal_code ?? ''), citta: String(a.city ?? ''), paese: String(a.country ?? '') }
               : null,
           };
         }

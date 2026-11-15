@@ -1,0 +1,1 @@
+ALTER TABLE "card_orders" ADD COLUMN "shipping_care_of" text;
