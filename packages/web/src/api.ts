@@ -40,7 +40,7 @@ export interface CassaforteRemota {
   accessi: Accesso[];
 }
 
-export type TipoVoce = 'account' | 'documento' | 'cartella' | 'istruzione' | 'crypto' | 'dispositivo' | 'lettera';
+export type TipoVoce = 'account' | 'documento' | 'cartella' | 'istruzione' | 'crypto' | 'dispositivo' | 'lettera' | 'ricordo';
 
 /** Lettera nel tempo: a chi va e da quando si può leggere (null = appena possibile dopo l'apertura). */
 export interface MetaLettera {
@@ -278,6 +278,8 @@ export const api = {
   vociRicevute: (id: string) => call<{ voci: VoceCondivisa[] }>('GET', `/v1/ricevuti/${id}/voci`),
   fileRicevuto: (id: string, itemId: string, fileId: string) => bytes(`/v1/ricevuti/${id}/voci/${itemId}/file/${fileId}`),
   /** Avanzamento delle pratiche dopo l'apertura, condiviso fra chi se ne occupa. */
+  promemoriaRicordi: () => call<{ attivo: boolean }>('GET', '/v1/ricordi/promemoria'),
+  impostaPromemoriaRicordi: (attivo: boolean) => call<{ attivo: boolean }>('PUT', '/v1/ricordi/promemoria', { attivo }),
   fatti: (dove: DoveFatti) => call<{ fatti: Fatto[] }>('GET', `${baseFatti(dove)}/fatti`),
   segnaFatto: (dove: DoveFatti, chiave: string, fatto: boolean) => call<{ fatti: Fatto[] }>('PUT', `${baseFatti(dove)}/fatti`, { chiave, fatto }),
   mieiCasi: () => call<{ casi: Caso[] }>('GET', '/v1/cassaforte/casi'),

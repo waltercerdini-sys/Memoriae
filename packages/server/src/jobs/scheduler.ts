@@ -7,6 +7,7 @@ import type { Mailer } from '../mail/mailer';
 import { checkinTokenHash } from '../routes/checkin';
 import { trialReminders } from '../payments/subscriptions';
 import { notifyDueLetters } from './lettere';
+import { memoriesReminders } from './ricordi';
 import { checkProviderSources, type FetchPage } from './catalogo';
 import { releaseDueCases } from './release';
 
@@ -29,10 +30,11 @@ export interface JobReport {
   avvisiPiano: number;
   lettere: number;
   catalogo: number;
+  ricordi: number;
 }
 
 export async function runJobs(ctx: JobContext, now = new Date()): Promise<JobReport> {
-  const report: JobReport = { promemoria: 0, avvisiFiduciari: 0, rilasci: 0, avvisiPiano: 0, lettere: 0, catalogo: 0 };
+  const report: JobReport = { promemoria: 0, avvisiFiduciari: 0, rilasci: 0, avvisiPiano: 0, lettere: 0, catalogo: 0, ricordi: 0 };
   const { db, mailer, appOrigin } = ctx;
 
   const rows = await db
@@ -85,6 +87,7 @@ export async function runJobs(ctx: JobContext, now = new Date()): Promise<JobRep
   report.rilasci = await releaseDueCases(ctx, now);
   report.avvisiPiano = await trialReminders(db, mailer, appOrigin, now);
   report.lettere = await notifyDueLetters(ctx, now);
+  report.ricordi = await memoriesReminders(db, mailer, appOrigin, now);
   if (ctx.catalogo) report.catalogo = await checkProviderSources({ db, mailer, appOrigin, ...ctx.catalogo }, now);
   return report;
 }
@@ -97,7 +100,7 @@ export function startScheduler(ctx: JobContext, intervalMs: number, log: (msg: s
     running = true;
     try {
       const r = await runJobs(ctx);
-      if (r.promemoria || r.avvisiFiduciari || r.rilasci || r.avvisiPiano || r.lettere || r.catalogo) log(`Lavori periodici: ${JSON.stringify(r)}`);
+      if (r.promemoria || r.avvisiFiduciari || r.rilasci || r.avvisiPiano || r.lettere || r.catalogo || r.ricordi) log(`Lavori periodici: ${JSON.stringify(r)}`);
     } catch (e) {
       log(`Errore nei lavori periodici: ${(e as Error).message}`);
     } finally {

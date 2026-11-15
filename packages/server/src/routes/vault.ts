@@ -48,7 +48,7 @@ const ReplaceAccess = z.object({
   chiaveCifrata: Envelope,
 });
 
-const ItemType = z.enum(['account', 'documento', 'cartella', 'istruzione', 'crypto', 'dispositivo', 'lettera']);
+const ItemType = z.enum(['account', 'documento', 'cartella', 'istruzione', 'crypto', 'dispositivo', 'lettera', 'ricordo']);
 /** Per le lettere: a chi va (una o più persone) e da quando si può leggere (null = appena possibile dopo l'apertura). */
 const Lettera = z.object({
   destinatari: z.array(z.string().uuid()).min(1).max(50),

@@ -25,7 +25,8 @@ const giorno = (s: string | Date) => new Date(s).toLocaleDateString('it-CH', { d
 export function htmlFascicolo(d: { proprietario: string; voci: Voce[]; persone: Persona[]; fornitori: Fornitore[]; conNote: boolean }): string {
   const nomi = (ids: string[]) => ids.map((id) => d.persone.find((p) => p.id === id)?.nome).filter(Boolean).join(', ') || '—';
   const account = d.voci.filter((v) => v.tipo === 'account');
-  const altre = d.voci.filter((v) => v.tipo !== 'account' && v.tipo !== 'lettera');
+  const altre = d.voci.filter((v) => v.tipo !== 'account' && v.tipo !== 'lettera' && v.tipo !== 'ricordo');
+  const ricordi = d.voci.filter((v) => v.tipo === 'ricordo');
   const lettere = d.voci.filter((v) => v.tipo === 'lettera');
   const abbonamenti = Math.round(d.voci.reduce((s, v) => s + (v.contenuto.abbonamento?.chfMese ?? 0), 0) * 12);
   const nota = (v: Voce) => (d.conNote && v.contenuto.note ? `<br><span class="nota">${esc(v.contenuto.note)}</span>` : '');
@@ -37,7 +38,7 @@ export function htmlFascicolo(d: { proprietario: string; voci: Voce[]; persone: 
     if (contatti.length) return `Impostata: ${esc(contatti.join(', '))}`;
     return v.contenuto.impostatoDaVivo ? 'Impostata' : 'Non ancora impostata';
   };
-  const incomplete = d.voci.filter((v) => !statoVoce(v, d.fornitori).completa).length;
+  const incomplete = d.voci.filter((v) => v.tipo !== 'ricordo' && !statoVoce(v, d.fornitori).completa).length;
 
   return `
 <h1>Eredità digitale di ${esc(d.proprietario)}</h1>
@@ -94,6 +95,8 @@ ${lettere
 </table>`
     : ''
 }
+
+${ricordi.length ? `<h2>Libro dei ricordi</h2><p>${ricordi.length} ${ricordi.length === 1 ? 'risposta registrata' : 'risposte registrate'}, per ${esc(nomi(ricordi[0]!.contenuto.destinatari ?? []))}. Il contenuto resta cifrato.</p>` : ''}
 
 <h2>Proposta di clausola per il testamento</h2>
 <div class="riquadro">

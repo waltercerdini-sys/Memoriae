@@ -14,6 +14,7 @@ import { Persone } from './Persone';
 import { dimenticaPianoScelto, pianoScelto } from './pianoScelto';
 import { Anteprima } from './Anteprima';
 import { Fascicolo } from './Fascicolo';
+import { LibroRicordi } from './LibroRicordi';
 import { sincronizzaRilascio, type StatoRilascio } from './rilascio';
 import { aggiornaVoce, aggiungiDocumenti, aggiungiVoce, documentiDi, leggiVoci, MAX_DOCUMENTI, rimuoviDocumento, scaricaFile, sostituisciDocumento, type AzioneAccount, type ContenutoVoce, type Voce } from './vault';
 
@@ -56,7 +57,7 @@ export function Inventario({
   const [mieiCasi, setMieiCasi] = useState<Caso[]>([]);
   const [stato, setStato] = useState<StatoRilascio | null>(null);
   const [scheda, setScheda] = useState<'voci' | 'persone' | 'controllo' | 'altri' | 'operatore'>('voci');
-  const [vista, setVista] = useState<{ tipo: 'elenco' } | { tipo: 'nuova' } | { tipo: 'dettaglio'; id: string } | { tipo: 'piano' } | { tipo: 'trova' } | { tipo: 'lettera' } | { tipo: 'anteprima'; id: string | null } | { tipo: 'fascicolo' }>({ tipo: 'elenco' });
+  const [vista, setVista] = useState<{ tipo: 'elenco' } | { tipo: 'nuova' } | { tipo: 'dettaglio'; id: string } | { tipo: 'piano' } | { tipo: 'trova' } | { tipo: 'lettera' } | { tipo: 'anteprima'; id: string | null } | { tipo: 'fascicolo' } | { tipo: 'ricordi' }>({ tipo: 'elenco' });
 
   // Il tasto «indietro» del browser torna alla schermata precedente dentro MEMORIAE invece di uscire.
   useEffect(() => {
@@ -124,7 +125,10 @@ export function Inventario({
     api.controllo().then((c) => setControlloAttivo(!c.inPausa)).catch(() => undefined);
   }, [ricarica]);
 
-  const prontezza = voci ? calcolaProntezza(voci, persone, fornitori, controlloAttivo) : null;
+  // Le risposte dell'Intervista dei ricordi stanno nel loro libro, non nell'elenco né nella percentuale.
+  const vociElenco = voci ? voci.filter((v) => v.tipo !== 'ricordo') : null;
+  const ricordi = voci ? voci.filter((v) => v.tipo === 'ricordo') : [];
+  const prontezza = vociElenco ? calcolaProntezza(vociElenco, persone, fornitori, controlloAttivo) : null;
 
   // Tornando all'elenco: la voce appena gestita in vista, evidenziata per un attimo.
   // Una volta sola per ritorno (non a ogni ricaricamento dei dati), dopo che l'elenco è disegnato.
@@ -218,6 +222,22 @@ export function Inventario({
         onScegli={(id) => setVista({ tipo: 'anteprima', id: id || null })}
         onIndietro={() => setVista({ tipo: 'elenco' })}
         onApriVoce={apri}
+      />
+    );
+  }
+
+  if (vista.tipo === 'ricordi') {
+    return (
+      <LibroRicordi
+        vaultKey={vaultKey}
+        voci={voci ?? []}
+        persone={persone}
+        onCambio={ricarica}
+        onIndietro={() => setVista({ tipo: 'elenco' })}
+        onVaiPersone={() => {
+          setVista({ tipo: 'elenco' });
+          setScheda('persone');
+        }}
       />
     );
   }
@@ -502,7 +522,7 @@ export function Inventario({
       ) : (
         <>
           {voci === null && <p className="tenue">Apro la cassaforte…</p>}
-          {voci && voci.length === 0 && (
+          {vociElenco && vociElenco.length === 0 && (
             <div className="riquadro evidenza">
               <h2>Cominciamo dall'elenco</h2>
               <p>
@@ -514,22 +534,22 @@ export function Inventario({
               </button>
             </div>
           )}
-          {voci && voci.length > 0 && (
+          {vociElenco && vociElenco.length > 0 && (
             <div className="filtro" role="group" aria-label="Quali voci mostrare">
               <button aria-pressed={filtro === 'tutte'} className={filtro === 'tutte' ? 'attiva' : ''} onClick={() => setFiltro('tutte')}>
-                Tutte ({voci.length})
+                Tutte ({vociElenco.length})
               </button>
               <button aria-pressed={filtro === 'da-completare'} className={filtro === 'da-completare' ? 'attiva' : ''} onClick={() => setFiltro('da-completare')}>
                 Da completare ({prontezza?.daCompletare ?? 0})
               </button>
             </div>
           )}
-          {voci && voci.length > 0 && filtro === 'da-completare' && prontezza?.daCompletare === 0 && (
+          {vociElenco && vociElenco.length > 0 && filtro === 'da-completare' && prontezza?.daCompletare === 0 && (
             <p className="esito">Tutte le voci sono complete. ✓</p>
           )}
-          {voci && voci.length > 0 && (
+          {vociElenco && vociElenco.length > 0 && (
             <ul className="voci">
-              {voci
+              {vociElenco
                 .map((v) => ({ v, st: statoVoce(v, fornitori) }))
                 .filter(({ v, st }) => filtro === 'tutte' || !st.completa || v.id === ultima)
                 .map(({ v, st }) => {
@@ -570,6 +590,15 @@ export function Inventario({
               })}
             </ul>
           )}
+          <button className="voce libro-ricordi" onClick={() => setVista({ tipo: 'ricordi' })}>
+            <span className="etichetta">Intervista dei ricordi</span>
+            <span className="titolo">📖 Il libro dei ricordi</span>
+            <span className="tenue">
+              {ricordi.length === 0
+                ? 'Una domanda alla settimana: rispondi a voce, anche solo due minuti.'
+                : `${ricordi.length === 1 ? '1 risposta' : `${ricordi.length} risposte`}. C'è una nuova domanda per te.`}
+            </span>
+          </button>
           <div className="azioni-voci">
             <button className="primario" onClick={() => setVista({ tipo: 'nuova' })}>
               Aggiungi una voce

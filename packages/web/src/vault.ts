@@ -43,6 +43,8 @@ export interface ContenutoVoce {
   impostatoDaVivo?: boolean;
   /** Persone indicate nella funzione d'eredità del fornitore e documento con la chiave (vedi contattoErede.ts). */
   erede?: { contatti: string[]; chiaveFileId?: string };
+  /** Intervista dei ricordi: a quale domanda risponde questa voce. */
+  domandaId?: string;
   /** Documenti allegati: nome e tipo restano cifrati qui; il server vede solo id e dimensione. */
   files?: FileVoce[];
   /** Versione precedente: un solo documento, con lo stesso id della voce. */
@@ -256,6 +258,13 @@ export async function aggiornaVoce(vaultKey: Uint8Array, voce: Voce, contenuto: 
 
 export async function chiaveVoce(vaultKey: Uint8Array, voce: Voce): Promise<Uint8Array> {
   return unwrapItemKey(vaultKey, comeEncrypted(voce.remota));
+}
+
+/** Il contenuto in chiaro di un documento (per esempio per ascoltare una registrazione). */
+export async function leggiFile(vaultKey: Uint8Array, voce: Voce, f: FileVoce): Promise<Blob> {
+  const k = await unwrapItemKey(vaultKey, comeEncrypted(voce.remota));
+  const bytes = await decryptFile(k, contestoFile(voce.id, f.id), await api.scaricaFile(voce.id, f.id));
+  return new Blob([bytes.slice().buffer], { type: f.tipo || 'application/octet-stream' });
 }
 
 export async function scaricaFile(vaultKey: Uint8Array, voce: Voce, f: FileVoce): Promise<void> {

@@ -6,6 +6,9 @@ import { FUNZIONI_EREDE } from './contattoErede';
 import { apriCaso, apriRicevuto, salvaFileAperto, type EsitoApertura, type VoceAperta } from './apertura';
 import { etichettaFatto, letteraPerVoce } from './letteraRichiesta';
 import { PrimiGiorni } from './PrimiGiorni';
+import { Ascolta } from './LibroRicordi';
+import { decryptFile } from '@memoriae/crypto';
+import { contestoFile } from './vault';
 
 const data = (s: string) => new Date(s).toLocaleString('it-CH', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
@@ -322,7 +325,7 @@ export function ElencoVoci(p: {
   useEffect(() => {
     api.fornitori().then((r) => setFornitori(r.fornitori)).catch(() => setFornitori([]));
   }, []);
-  const pratiche = p.voci.filter((v) => v.tipo !== 'lettera');
+  const pratiche = p.voci.filter((v) => v.tipo !== 'lettera' && v.tipo !== 'ricordo');
   const fatte = pratiche.filter((v) => p.fatti?.has(`voce:${v.id}`)).length;
   return (
     <div>
@@ -382,7 +385,7 @@ export function ElencoVoci(p: {
                 </button>
               );
             })()}
-            {v.tipo !== 'lettera' && (p.onFatto || p.anteprima) && (
+            {v.tipo !== 'lettera' && v.tipo !== 'ricordo' && (p.onFatto || p.anteprima) && (
               <div className="azioni-voci">
                 <label className="spunta">
                   <input
@@ -406,6 +409,16 @@ export function ElencoVoci(p: {
                   </button>
                 )}
               </div>
+            )}
+            {v.tipo === 'ricordo' && v.documenti[0] && (
+              <Ascolta
+                carica={async () => {
+                  const f = v.documenti[0]!;
+                  if (p.anteprima) throw new Error('Nell\'anteprima l\'ascolto non è disponibile: la registrazione la senti nel tuo libro dei ricordi.');
+                  const bytes = await decryptFile(v.itemKey, contestoFile(v.id, f.id), await p.scarica(v, f.id));
+                  return new Blob([bytes.slice().buffer], { type: f.tipo || 'audio/mp4' });
+                }}
+              />
             )}
             {v.documenti.length > 0 && (
               <div className="documenti">

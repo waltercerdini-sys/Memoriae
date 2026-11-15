@@ -11,6 +11,7 @@ import { authRoutes } from './routes/auth';
 import { billingRoutes, trialCheckoutFactory } from './routes/billing';
 import { TrialProvider, type PaymentProvider } from './payments/provider';
 import { checkinRoutes } from './routes/checkin';
+import { ricordiRoutes } from './routes/ricordi';
 import { personRoutes } from './routes/persons';
 import { recoveryRoutes } from './routes/recovery';
 import type { KeyCustody } from './storage/custody';
@@ -82,6 +83,7 @@ export function buildApp({ db, passkeys, blobs, mailer, custody, appOrigin, cook
   app.register(recoveryRoutes, { db, passkeys, mailer, cookieSecure });
   app.register(personRoutes, { db, mailer, custody, appOrigin });
   app.register(checkinRoutes, { db });
+  app.register(ricordiRoutes, { db });
   app.register(billingRoutes, { db, mailer, appOrigin, payments: payments ?? new TrialProvider(trialCheckoutFactory(db), appOrigin) });
   app.register(activationRoutes, { db, mailer, custody, blobs, appOrigin, ...(activation ?? { operatori: [], chiaveDocumenti: new Uint8Array(randomBytes(32)) }) });
 

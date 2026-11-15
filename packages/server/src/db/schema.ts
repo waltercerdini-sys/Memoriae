@@ -43,6 +43,9 @@ export const users = pgTable('users', {
   publicKey: text('public_key'),
   /** Chiave privata cifrata con la chiave d'accesso. */
   wrappedPrivateKey: jsonb('wrapped_private_key'),
+  /** Intervista dei ricordi: promemoria settimanale per e-mail (scelto dall'utente) e ultimo invio. */
+  memoriesReminder: boolean('memories_reminder').notNull().default(false),
+  memoriesReminderSentAt: timestamp('memories_reminder_sent_at', { withTimezone: true }),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 }, (t) => [uniqueIndex('users_email_idx').on(t.email)]);
@@ -127,7 +130,7 @@ export const vaultKeyWraps = pgTable('vault_key_wraps', {
   createdAt: createdAt(),
 }, (t) => [index('vault_key_wraps_vault_idx').on(t.vaultId)]);
 
-export const itemTypeEnum = pgEnum('item_type', ['account', 'documento', 'cartella', 'istruzione', 'crypto', 'dispositivo', 'lettera']);
+export const itemTypeEnum = pgEnum('item_type', ['account', 'documento', 'cartella', 'istruzione', 'crypto', 'dispositivo', 'lettera', 'ricordo']);
 
 /** Una voce dell'inventario. Del contenuto il server vede solo tipo, dimensione e date. */
 export const items = pgTable('items', {

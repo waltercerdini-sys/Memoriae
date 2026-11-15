@@ -146,6 +146,17 @@ await R.page.getByRole('heading', { name: 'Ricevono solo lettere' }).waitFor();
 await R.page.getByRole('tab', { name: 'Voci' }).click();
 step('Rosa: una lettera per Marco e per Lucia (solo e-mail, nessun invito)');
 
+// Libro dei ricordi per Marco: una risposta scritta.
+await R.page.getByRole('button', { name: /Il libro dei ricordi/ }).click();
+await R.page.getByRole('checkbox', { name: 'Marco Bianchi' }).check();
+await R.page.getByText('Per Marco Bianchi').waitFor();
+await R.page.getByRole('button', { name: 'Preferisco scrivere' }).click();
+await R.page.getByLabel('La tua risposta').fill('La casa di via Lunga, con il pergolato di glicine.');
+await R.page.getByRole('button', { name: 'Salva nel libro' }).click();
+await R.page.locator('.elenco-ricordi li', { hasText: 'glicine' }).waitFor();
+await R.page.getByRole('button', { name: "‹ Torna all'elenco" }).click();
+step('Rosa: una risposta nel libro dei ricordi per Marco');
+
 // Prova generale: con gli occhi di Marco.
 await R.page.getByRole('button', { name: '👁 Guarda con gli occhi di…' }).click();
 await R.page.getByRole('button', { name: /^Marco Bianchi/ }).click();
@@ -253,6 +264,8 @@ await voceMarco.getByRole('checkbox').check();
 await M.page.getByText('Tutto sistemato. ✓').waitFor();
 await M.shot('02-fatto');
 step('Marco: vede il passo fatto da Anna, la lettera per due e segna la sua voce come sistemata');
+await M.page.getByText('La casa di via Lunga, con il pergolato di glicine.').waitFor();
+step('Marco: legge la risposta del libro dei ricordi');
 
 await browser.close();
 console.log('Attivazione: prova superata');

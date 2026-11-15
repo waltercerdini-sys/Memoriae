@@ -99,6 +99,13 @@
       "when": 1794679542610,
       "tag": "0013_controllo_catalogo",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1794701166675,
+      "tag": "0014_ricordi",
+      "breakpoints": true
     }
   ]
 }
