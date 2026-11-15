@@ -57,7 +57,7 @@ export function Inventario({
   const [operatore, setOperatore] = useState<{ prova: boolean } | null>(null);
   const [mieiCasi, setMieiCasi] = useState<Caso[]>([]);
   const [stato, setStato] = useState<StatoRilascio | null>(null);
-  const [scheda, setScheda] = useState<'voci' | 'persone' | 'controllo' | 'altri' | 'operatore'>('voci');
+  const [scheda, setScheda] = useState<'voci' | 'ricordi' | 'persone' | 'controllo' | 'altri' | 'operatore'>('voci');
   const [vista, setVista] = useState<{ tipo: 'elenco' } | { tipo: 'nuova' } | { tipo: 'dettaglio'; id: string } | { tipo: 'piano' } | { tipo: 'trova' } | { tipo: 'lettera' } | { tipo: 'anteprima'; id: string | null } | { tipo: 'fascicolo' } | { tipo: 'ricordi' } | { tipo: 'carta' }>({ tipo: 'elenco' });
 
   // Il tasto «indietro» del browser torna alla schermata precedente dentro MEMORIAE invece di uscire.
@@ -127,14 +127,16 @@ export function Inventario({
   }, [ricarica]);
 
   // Le risposte dell'Intervista dei ricordi stanno nel loro libro, non nell'elenco né nella percentuale.
-  const vociElenco = voci ? voci.filter((v) => v.tipo !== 'ricordo') : null;
+  // Le lettere stanno nella scheda «Ricordi», insieme al libro dei ricordi.
+  const vociElenco = voci ? voci.filter((v) => v.tipo !== 'ricordo' && v.tipo !== 'lettera') : null;
   const ricordi = voci ? voci.filter((v) => v.tipo === 'ricordo') : [];
+  const lettere = voci ? voci.filter((v) => v.tipo === 'lettera') : [];
   const prontezza = vociElenco ? calcolaProntezza(vociElenco, persone, fornitori, controlloAttivo) : null;
 
   // Tornando all'elenco: la voce appena gestita in vista, evidenziata per un attimo.
   // Una volta sola per ritorno (non a ogni ricaricamento dei dati), dopo che l'elenco è disegnato.
   useEffect(() => {
-    if (vista.tipo !== 'elenco' || scheda !== 'voci' || !ultima || !voci || !daRiposizionare.current) return;
+    if (vista.tipo !== 'elenco' || (scheda !== 'voci' && scheda !== 'ricordi') || !ultima || !voci || !daRiposizionare.current) return;
     let t: ReturnType<typeof setTimeout> | undefined;
     const f = requestAnimationFrame(() => {
       // Se la voce non è in elenco (per esempio eliminata), si va alla voce che la seguiva.
@@ -264,6 +266,7 @@ export function Inventario({
           await ricarica();
           setUltima(id);
           daRiposizionare.current = true;
+          setScheda('ricordi');
           setVista({ tipo: 'elenco' });
           setEsito('Lettera chiusa nella cassaforte. Resterà cifrata fino al giorno che hai scelto.');
         }}
@@ -494,11 +497,14 @@ export function Inventario({
         <button role="tab" aria-selected={scheda === 'voci'} className={scheda === 'voci' ? 'attiva' : ''} onClick={() => setScheda('voci')}>
           Voci
         </button>
+        <button role="tab" aria-selected={scheda === 'ricordi'} className={scheda === 'ricordi' ? 'attiva' : ''} onClick={() => setScheda('ricordi')}>
+          Ricordi
+        </button>
         <button role="tab" aria-selected={scheda === 'persone'} className={scheda === 'persone' ? 'attiva' : ''} onClick={() => setScheda('persone')}>
           Persone
         </button>
         <button role="tab" aria-selected={scheda === 'controllo'} className={scheda === 'controllo' ? 'attiva' : ''} onClick={() => setScheda('controllo')}>
-          Sono qui
+          Protezione
         </button>
         {fiducia.length > 0 && (
           <button role="tab" aria-selected={scheda === 'altri'} className={scheda === 'altri' ? 'attiva' : ''} onClick={() => setScheda('altri')}>
@@ -521,9 +527,70 @@ export function Inventario({
       ) : scheda === 'altri' ? (
         <Fiducia vaultKey={vaultKey} mioNome={utente.nome} />
       ) : scheda === 'controllo' ? (
-        <Controllo />
+        <>
+          <Controllo />
+          <h2>Se ti succede qualcosa</h2>
+          <button className="voce strumento" onClick={() => setVista({ tipo: 'carta' })}>
+            <span className="etichetta">Da tenere nel portafoglio</span>
+            <span className="titolo">💳 Carta MEMORIAE</span>
+            <span className="tenue">Chi la trova la avvicina al telefono e può avvisare le tue persone di fiducia.</span>
+          </button>
+          <button className="voce strumento" onClick={() => setVista({ tipo: 'fascicolo' })}>
+            <span className="etichetta">Da allegare al testamento</span>
+            <span className="titolo">📄 Fascicolo per il notaio</span>
+            <span className="tenue">I tuoi account, le persone e le volontà, senza password, pronti da stampare.</span>
+          </button>
+        </>
       ) : scheda === 'persone' ? (
-        <Persone persone={persone} stato={stato} onCambio={ricarica} onAnteprima={(id) => setVista({ tipo: 'anteprima', id })} />
+        <>
+          {persone.length > 0 && (
+            <button className="voce strumento" onClick={() => setVista({ tipo: 'anteprima', id: null })}>
+              <span className="etichetta">Prova generale</span>
+              <span className="titolo">👁 Guarda con gli occhi di…</span>
+              <span className="tenue">Scegli una persona e vedi esattamente cosa riceverà.</span>
+            </button>
+          )}
+          <Persone persone={persone} stato={stato} onCambio={ricarica} onAnteprima={(id) => setVista({ tipo: 'anteprima', id })} />
+        </>
+      ) : scheda === 'ricordi' ? (
+        <>
+          <p>Le cose del cuore: parole e ricordi per le persone che ami, chiusi e cifrati fino al momento giusto.</p>
+          <h2>Lettere per il futuro</h2>
+          {lettere.length === 0 && <p className="tenue">Una lettera per i 18 anni di un nipote, per un matrimonio, o semplicemente per dire grazie.</p>}
+          {lettere.length > 0 && (
+            <ul className="voci">
+              {lettere.map((v) => (
+                <li key={v.id} id={`voce-${v.id}`}>
+                  <button className="voce" onClick={() => apri(v.id)}>
+                    <span className="etichetta">Lettera</span>
+                    <span className="titolo">{v.contenuto.titolo}</span>
+                    {nomiDestinatari(v.remota.lettera?.destinatari ?? [], persone) && (
+                      <span className="tenue">Per {nomiDestinatari(v.remota.lettera?.destinatari ?? [], persone)}</span>
+                    )}
+                    <span className="dettagli">
+                      <span className="pillola chiara">
+                        {v.remota.lettera?.consegnaIl ? `Si apre il ${dataLunga(v.remota.lettera.consegnaIl)}` : 'Si apre con la cassaforte'}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <button className="primario" onClick={() => setVista({ tipo: 'lettera' })}>
+            ✉ Scrivi una lettera
+          </button>
+          <h2>Il libro dei ricordi</h2>
+          <button className="voce strumento" onClick={() => setVista({ tipo: 'ricordi' })}>
+            <span className="etichetta">Intervista dei ricordi</span>
+            <span className="titolo">📖 Il libro dei ricordi</span>
+            <span className="tenue">
+              {ricordi.length === 0
+                ? 'Una domanda alla settimana: rispondi a voce, anche solo due minuti.'
+                : `${ricordi.length === 1 ? '1 risposta' : `${ricordi.length} risposte`}. C'è una nuova domanda per te.`}
+            </span>
+          </button>
+        </>
       ) : (
         <>
           {voci === null && <p className="tenue">Apro la cassaforte…</p>}
@@ -595,38 +662,11 @@ export function Inventario({
               })}
             </ul>
           )}
-          <button className="voce libro-ricordi" onClick={() => setVista({ tipo: 'ricordi' })}>
-            <span className="etichetta">Intervista dei ricordi</span>
-            <span className="titolo">📖 Il libro dei ricordi</span>
-            <span className="tenue">
-              {ricordi.length === 0
-                ? 'Una domanda alla settimana: rispondi a voce, anche solo due minuti.'
-                : `${ricordi.length === 1 ? '1 risposta' : `${ricordi.length} risposte`}. C'è una nuova domanda per te.`}
-            </span>
-          </button>
           <div className="azioni-voci">
             <button className="primario" onClick={() => setVista({ tipo: 'nuova' })}>
               Aggiungi una voce
             </button>
-            <button className="secondario" onClick={() => setVista({ tipo: 'lettera' })}>
-              ✉ Scrivi una lettera
-            </button>
-          </div>
-          <div className="azioni-voci">
-            {persone.length > 0 && (
-              <button className="secondario" onClick={() => setVista({ tipo: 'anteprima', id: null })}>
-                👁 Guarda con gli occhi di…
-              </button>
-            )}
-            {voci && voci.length > 0 && (
-              <button className="secondario" onClick={() => setVista({ tipo: 'fascicolo' })}>
-                Fascicolo per il notaio
-              </button>
-            )}
-            <button className="secondario" onClick={() => setVista({ tipo: 'carta' })}>
-              💳 Carta MEMORIAE
-            </button>
-            {voci && voci.length > 0 && (
+            {vociElenco && vociElenco.length > 0 && (
               <button className="secondario" onClick={() => setVista({ tipo: 'trova' })}>
                 Trova tutto
               </button>
@@ -765,8 +805,8 @@ function NuovaVoce(p: {
       <section className="passo">
         <h1>Che cosa vuoi aggiungere?</h1>
         <div className="scelte">
-          {TIPI.map((t) => (
-            <button key={t.tipo} className="scelta" onClick={() => (t.tipo === 'lettera' ? p.onLettera() : setTipo(t.tipo))}>
+          {TIPI.filter((t) => t.tipo !== 'lettera' && t.tipo !== 'ricordo').map((t) => (
+            <button key={t.tipo} className="scelta" onClick={() => setTipo(t.tipo)}>
               <span className="titolo">{t.nome}</span>
               <span className="tenue">{t.descrizione}</span>
             </button>

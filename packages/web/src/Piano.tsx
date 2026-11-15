@@ -30,6 +30,41 @@ export function RigaPiano({ st, onApri }: { st: StatoPiano | null; onApri: () =>
   );
 }
 
+/** Lo stato in una frase sola, grande e colorata: si capisce a colpo d'occhio se c'è da fare qualcosa. */
+function StatoGrande({ st, nomePiano }: { st: StatoPiano; nomePiano?: string }) {
+  let tono: 'ok' | 'attenzione' | 'fermo';
+  let titolo: string;
+  let sotto: string;
+  if (st.stato === 'prova') {
+    const g = giorni(st.provaFinoAl);
+    tono = g <= 7 ? 'attenzione' : 'ok';
+    titolo = g <= 7 ? `Mancano ${g === 1 ? '1 giorno' : `${g} giorni`} alla fine della prova` : `Prova gratuita: ancora ${g} giorni`;
+    sotto = `Fino al ${data(st.provaFinoAl)} · tutte le funzioni · nessun pagamento`;
+  } else if (st.stato === 'scaduto') {
+    tono = 'fermo';
+    titolo = 'La prova gratuita è finita';
+    sotto = 'Puoi ancora leggere tutto e ciò che hai preparato arriverà a chi deve. Per aggiungere o modificare, scegli un piano.';
+  } else if (st.stato === 'in-ritardo') {
+    tono = 'attenzione';
+    titolo = 'Il rinnovo non è andato a buon fine';
+    sotto = 'Aggiorna il metodo di pagamento qui sotto: intanto tutto continua a funzionare.';
+  } else if (st.copertoDa) {
+    tono = 'ok';
+    titolo = '✓ Incluso nel piano Famiglia';
+    sotto = `Il piano è di ${st.copertoDa}${st.validoFinoAl ? `, valido fino al ${data(st.validoFinoAl)}` : ''}.`;
+  } else {
+    tono = 'ok';
+    titolo = `✓ Piano ${nomePiano ?? ''} attivo`;
+    sotto = st.validoFinoAl ? `Pagato fino al ${data(st.validoFinoAl)}` : 'Pagato';
+  }
+  return (
+    <div className={`stato-piano ${tono}`} role="status">
+      <p className="stato-titolo">{titolo}</p>
+      <p>{sotto}</p>
+    </div>
+  );
+}
+
 /** Il tuo piano: prezzi, pagamento con TWINT o carta, piano Famiglia. */
 export function Piano({ onIndietro }: { onIndietro: () => void }) {
   // Il piano scelto sul sito va in cima, in evidenza; poi non serve più ricordarlo.
@@ -79,35 +114,22 @@ export function Piano({ onIndietro }: { onIndietro: () => void }) {
       </button>
       <h1>Il tuo piano</h1>
 
-      <div className="riquadro">
-        {st.stato === 'prova' && (
-          <p>
-            Stai usando la <strong>prova gratuita</strong> fino al {data(st.provaFinoAl)}: tutte le funzioni, senza impegno.
-          </p>
-        )}
-        {st.stato === 'scaduto' && (
-          <p>
-            La prova è finita. La tua cassaforte resta com'è, le tue persone di fiducia restano pronte e tutto ciò che hai preparato
-            arriverà a chi deve. Per <strong>aggiungere o modificare</strong> voci e persone scegli un piano.
-          </p>
-        )}
-        {st.copertoDa && <p>Sei incluso nel piano Famiglia di {st.copertoDa}{st.validoFinoAl && `, valido fino al ${data(st.validoFinoAl)}`}.</p>}
-        {attivo && st.piano && (
-          <p>
-            Piano <strong>{offerte.find((o) => o.id === st.piano)?.nome}</strong>
-            {st.validoFinoAl && <>, pagato fino al {data(st.validoFinoAl)}</>}.{' '}
-            {st.rinnovoAutomatico ? 'Si rinnova da solo ogni anno; ti avvisiamo prima.' : 'Non si rinnova da solo.'}
-          </p>
-        )}
-        {st.stato === 'in-ritardo' && <p className="avviso">Il rinnovo non è andato a buon fine. Aggiorna il metodo di pagamento qui sotto.</p>}
-        {st.haPortale && (
-          <button className="secondario" disabled={occupato} onClick={() => esegui(async () => vaiA((await api.gestisciPagamento()).url))}>
-            Gestisci pagamento, ricevute e disdetta
-          </button>
-        )}
-      </div>
+      <StatoGrande st={st} nomePiano={offerte.find((o) => o.id === st.piano)?.nome} />
+      <button className="primario continua" onClick={onIndietro}>
+        {st.stato === 'prova' ? 'Continua la prova gratuita' : 'Torna alla cassaforte'}
+      </button>
+      {attivo && st.piano && (
+        <p className="tenue">{st.rinnovoAutomatico ? 'Il piano si rinnova da solo ogni anno: ti avvisiamo prima.' : 'Il piano non si rinnova da solo.'}</p>
+      )}
+      {st.haPortale && (
+        <button className="secondario" disabled={occupato} onClick={() => esegui(async () => vaiA((await api.gestisciPagamento()).url))}>
+          Gestisci pagamento, ricevute e disdetta
+        </button>
+      )}
 
+      {!attivo && !st.copertoDa && <h2 className="titolo-piani">{st.stato === 'scaduto' ? 'Scegli un piano per continuare a modificare' : 'Quando vuoi, scegli un piano'}</h2>}
       {!attivo &&
+        !st.copertoDa &&
         [...offerte].sort((a, b) => Number(b.id === scelto) - Number(a.id === scelto)).map((o) => (
           <div key={o.id} className={`riquadro ${o.id === scelto ? 'evidenza' : ''}`}>
             {o.id === scelto && <p className="etichetta">Il piano che hai scelto</p>}

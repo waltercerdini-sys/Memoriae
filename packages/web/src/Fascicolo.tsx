@@ -113,7 +113,7 @@ export function Fascicolo(p: { proprietario: string; voci: Voce[]; persone: Pers
   return (
     <section className="passo">
       <button className="link indietro" onClick={p.onIndietro}>
-        ‹ Torna all'elenco
+        ‹ Indietro
       </button>
       <p className="etichetta">Da allegare al testamento</p>
       <h1>Fascicolo per il notaio</h1>

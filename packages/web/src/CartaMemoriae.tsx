@@ -78,7 +78,7 @@ export function CartaToccata() {
           return (
             <>
               <h1>È la tua carta ✓</h1>
-              <p>Funziona. Se la perdi, disattivala da MEMORIAE › Carta MEMORIAE.</p>
+              <p>Funziona. Se la perdi, disattivala da MEMORIAE › Protezione › Carta MEMORIAE.</p>
               <a className="bottone primario" href="/">
                 Apri MEMORIAE
               </a>
@@ -229,7 +229,7 @@ export function CartaMemoriae(p: { onIndietro: () => void; esito?: string | null
   return (
     <section className="passo">
       <button className="link indietro" onClick={p.onIndietro}>
-        ‹ Torna all'elenco
+        ‹ Indietro
       </button>
       <p className="etichetta">Da tenere nel portafoglio</p>
       <h1>Carta MEMORIAE</h1>

@@ -214,7 +214,7 @@ export async function cardRoutes(
       subject: 'MEMORIAE – la tua carta è stata letta',
       text:
         `Ciao ${owner!.name.split(' ')[0]},\nqualcuno ha avvicinato la tua Carta MEMORIAE a un telefono e ha avvisato le tue persone di fiducia (${fiduciari.length}).\n${dettagli}\n` +
-        `Se hai perso la carta, disattivala dall'app (Voci › Carta MEMORIAE): ${appOrigin}`,
+        `Se hai perso la carta, disattivala dall'app (Protezione › Carta MEMORIAE): ${appOrigin}`,
     });
     await db.insert(auditLog).values({ actor: 'anonimo', action: 'carta-avviso', vaultId: c.vaultId, details: { carta: c.id, fiduciari: fiduciari.length } });
     return { avvisati: fiduciari.length };

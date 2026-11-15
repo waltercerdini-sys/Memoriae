@@ -236,7 +236,7 @@ export function LibroRicordi(p: {
   return (
     <section className="passo">
       <button className="link indietro" onClick={p.onIndietro}>
-        ‹ Torna all'elenco
+        ‹ Indietro
       </button>
       <p className="etichetta">Intervista dei ricordi</p>
       <h1>Il libro dei ricordi</h1>

@@ -36,8 +36,7 @@ await page.getByRole('radio', { name: /^Destinatario/ }).check();
 await page.getByLabel('Nome', { exact: true }).fill('Luca (nipote)');
 await page.getByRole('button', { name: 'Salva' }).click();
 await page.getByText('Luca (nipote)').first().waitFor();
-await page.getByRole('tab', { name: 'Voci' }).click();
-
+await page.getByRole('tab', { name: 'Ricordi' }).click();
 await page.getByRole('button', { name: /Il libro dei ricordi/ }).click();
 await page.getByRole('heading', { name: 'Il libro dei ricordi', level: 1 }).waitFor();
 await page.getByText('Scegli almeno una persona').waitFor();
@@ -81,15 +80,16 @@ step('domanda saltata e risposta scritta');
 await page.getByLabel(/Mandami un promemoria ogni settimana/).check();
 await page.reload();
 await page.getByRole('button', { name: 'Accedi con la passkey' }).click();
-await page.getByRole('button', { name: /Il libro dei ricordi/ }).waitFor();
+await page.getByRole('tab', { name: 'Ricordi' }).click();
 await page.getByRole('button', { name: /Il libro dei ricordi/ }).click();
 await page.getByRole('checkbox', { name: /Mandami un promemoria ogni settimana/, checked: true }).waitFor({ timeout: 10000 });
 await shot('02-libro');
 step('promemoria settimanale salvato');
 
 // Le risposte non compaiono nell'elenco delle voci né nella percentuale.
-await page.getByRole('button', { name: "‹ Torna all'elenco" }).click();
+await page.getByRole('button', { name: '‹ Indietro' }).click();
 await page.getByText('2 risposte').waitFor();
+await page.getByRole('tab', { name: 'Voci' }).click();
 if (await page.locator('ul.voci li').count()) throw new Error('Le risposte compaiono nell\'elenco delle voci');
 step('le risposte stanno nel libro, non nell\'elenco');
 

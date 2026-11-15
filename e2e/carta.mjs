@@ -39,7 +39,8 @@ await page.getByRole('button', { name: 'Vai alla cassaforte' }).click();
 await page.getByText(/pronta al 10%/).waitFor();
 
 // Ordine: una carta, regalo, indirizzo nella pagina di pagamento.
-await page.getByRole('button', { name: '💳 Carta MEMORIAE' }).click();
+await page.getByRole('tab', { name: 'Protezione' }).click();
+await page.getByRole('button', { name: /Carta MEMORIAE/ }).click();
 await page.getByRole('heading', { name: 'Carta MEMORIAE', level: 1 }).waitFor();
 await page.getByText('La carta non apre la tua cassaforte.').waitFor();
 await page.getByLabel(/È un regalo/).check();
@@ -105,13 +106,13 @@ await shot(s, '06-avvisato');
 step('chi la trova vede «Rosa B.» e manda l\'avviso');
 
 // Carta persa: disattivata.
-await page.getByRole('button', { name: '‹ Torna alle voci' }).click();
-await page.getByRole('button', { name: '💳 Carta MEMORIAE' }).click();
+await page.getByRole('tab', { name: 'Protezione' }).click();
+await page.getByRole('button', { name: /Carta MEMORIAE/ }).click();
 await page.getByText('Attiva', { exact: true }).waitFor();
 await page.getByRole('button', { name: "L'ho persa: disattiva" }).click();
 await page.getByRole('button', { name: 'Sì, disattiva' }).click();
 await page.getByText('Disattivata', { exact: true }).waitFor();
-await page.getByRole('button', { name: "‹ Torna all'elenco" }).click();
+await page.getByRole('button', { name: '‹ Indietro' }).click();
 await page.getByRole('tab', { name: 'Operatore' }).click();
 await s.goto(await nuovoTocco());
 await s.getByRole('heading', { name: 'Carta disattivata' }).waitFor();

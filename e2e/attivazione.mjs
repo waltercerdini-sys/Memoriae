@@ -108,9 +108,8 @@ for (const [titolo, chi] of [['Lettera per Marco', 'Marco Bianchi'], ['Foto per 
 await R.page.getByText('Per Marco Bianchi').first().waitFor();
 // Due lettere per Marco: una da aprire subito, una nel 2040.
 async function lettera(titolo, testo, giorno) {
-  await R.page.getByRole('tab', { name: 'Voci' }).click();
-  await R.page.getByRole('button', { name: 'Aggiungi una voce' }).click();
-  await R.page.getByRole('button', { name: /^Lettera per il futuro/ }).click();
+  await R.page.getByRole('tab', { name: 'Ricordi' }).click();
+  await R.page.getByRole('button', { name: '✉ Scrivi una lettera' }).click();
   await R.page.getByRole('checkbox', { name: 'Marco Bianchi' }).check();
   if (giorno) await R.page.getByLabel('Giorno', { exact: true }).fill(giorno);
   else await R.page.getByRole('radio', { name: /Appena possibile/ }).check();
@@ -143,7 +142,7 @@ await R.page.locator('li', { hasText: 'Per voi due' }).getByText('Per Marco Bian
 if (posteDi('lucia.prova@example.ch') > 0) throw new Error('Lucia ha ricevuto un invito: la lettera doveva restare una sorpresa');
 await R.page.getByRole('tab', { name: 'Persone' }).click();
 await R.page.getByRole('heading', { name: 'Ricevono solo lettere' }).waitFor();
-await R.page.getByRole('tab', { name: 'Voci' }).click();
+await R.page.getByRole('tab', { name: 'Ricordi' }).click();
 step('Rosa: una lettera per Marco e per Lucia (solo e-mail, nessun invito)');
 
 // Libro dei ricordi per Marco: una risposta scritta.
@@ -154,11 +153,12 @@ await R.page.getByRole('button', { name: 'Preferisco scrivere' }).click();
 await R.page.getByLabel('La tua risposta').fill('La casa di via Lunga, con il pergolato di glicine.');
 await R.page.getByRole('button', { name: 'Salva nel libro' }).click();
 await R.page.locator('.elenco-ricordi li', { hasText: 'glicine' }).waitFor();
-await R.page.getByRole('button', { name: "‹ Torna all'elenco" }).click();
+await R.page.getByRole('button', { name: '‹ Indietro' }).click();
 step('Rosa: una risposta nel libro dei ricordi per Marco');
 
-// Prova generale: con gli occhi di Marco.
-await R.page.getByRole('button', { name: '👁 Guarda con gli occhi di…' }).click();
+// Prova generale: con gli occhi di Marco (scheda Persone).
+await R.page.getByRole('tab', { name: 'Persone' }).click();
+await R.page.getByRole('button', { name: /Guarda con gli occhi di/ }).click();
 await R.page.getByRole('button', { name: /^Marco Bianchi/ }).click();
 await R.page.getByRole('heading', { name: 'Con gli occhi di Marco' }).waitFor();
 await R.page.getByText('Una lettera ti aspetta').waitFor();
@@ -166,19 +166,20 @@ await R.page.getByRole('heading', { name: 'Per voi due' }).waitFor();
 if (await R.page.getByText('Foto per Anna').count()) throw new Error('Anteprima: Marco vede una voce non sua');
 await R.shot('05-anteprima-marco');
 await R.page.getByRole('button', { name: "‹ Scegli un'altra persona" }).click();
-await R.page.getByRole('button', { name: "‹ Torna all'elenco" }).click();
+await R.page.getByRole('button', { name: '‹ Indietro' }).click();
 step('Rosa: prova generale con gli occhi di Marco');
 
-// Fascicolo per il notaio: si apre una pagina da stampare.
-await R.page.getByRole('button', { name: 'Fascicolo per il notaio' }).click();
+// Fascicolo per il notaio (scheda Protezione): si apre una pagina da stampare.
+await R.page.getByRole('tab', { name: 'Protezione' }).click();
+await R.page.getByRole('button', { name: /Fascicolo per il notaio/ }).click();
 const [fascicolo] = await Promise.all([R.page.context().waitForEvent('page'), R.page.getByRole('button', { name: 'Prepara il fascicolo (PDF)' }).click()]);
 await fascicolo.getByRole('heading', { name: 'Eredità digitale di Rosa Bianchi' }).waitFor();
 await fascicolo.getByText('Non è un testamento e non lo sostituisce', { exact: false }).waitFor();
 await fascicolo.screenshot({ path: join(OUT, 'attivazione-rosa-06-fascicolo.png'), fullPage: true });
 await fascicolo.close();
-await R.page.getByRole('button', { name: "‹ Torna all'elenco" }).click();
+await R.page.getByRole('button', { name: '‹ Indietro' }).click();
 step('Rosa: fascicolo per il notaio pronto da stampare');
-await R.page.getByRole('tab', { name: 'Sono qui' }).click();
+await R.page.getByRole('tab', { name: 'Protezione' }).click();
 await R.page.getByRole('heading', { name: 'Controllo periodico' }).waitFor();
 await R.shot('01-sono-qui');
 step('Rosa: voci assegnate, controllo periodico visibile');

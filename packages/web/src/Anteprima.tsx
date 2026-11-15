@@ -45,7 +45,7 @@ export function Anteprima(p: {
     return (
       <section className="passo">
         <button className="link indietro" onClick={p.onIndietro}>
-          ‹ Torna all'elenco
+          ‹ Indietro
         </button>
         <p className="etichetta">Prova generale</p>
         <h1>Guarda con gli occhi di…</h1>

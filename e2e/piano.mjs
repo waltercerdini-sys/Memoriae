@@ -33,6 +33,10 @@ await shot('01-prova');
 step('prova gratuita di 30 giorni');
 
 await page.getByRole('button', { name: 'Scegli un piano' }).click();
+// Lo stato in grande e il pulsante per continuare la prova.
+await page.locator('.stato-piano.ok').getByText(/Prova gratuita: ancora (29|30) giorni/).waitFor();
+await page.getByRole('button', { name: 'Continua la prova gratuita' }).waitFor();
+await page.getByRole('heading', { name: 'Quando vuoi, scegli un piano' }).waitFor();
 await page.getByRole('heading', { name: "Essenziale – CHF 59 all'anno" }).waitFor();
 await page.getByRole('heading', { name: "Famiglia – CHF 99 all'anno" }).waitFor();
 await shot('02-piani');
@@ -46,7 +50,11 @@ step('pagamento di prova completato');
 await page.getByRole('button', { name: 'Accedi con la passkey' }).click();
 await page.getByText('Piano Essenziale attivo.').waitFor();
 await page.getByRole('button', { name: 'Il tuo piano' }).click();
-await page.getByText(/pagato fino al/).waitFor();
+await page.locator('.stato-piano.ok').getByText('✓ Piano Essenziale attivo').waitFor();
+await page.getByText(/Pagato fino al/).waitFor();
+await page.getByRole('button', { name: 'Torna alla cassaforte', exact: true }).click();
+await page.getByText('Piano Essenziale attivo.').waitFor();
+await page.getByRole('button', { name: 'Il tuo piano' }).click();
 await shot('04-attivo');
 step('piano attivo per un anno');
 

@@ -869,3 +869,44 @@ a.bottone {
   text-decoration: none;
   text-align: center;
 }
+
+/* Il tuo piano: stato a colpo d'occhio */
+.stato-piano {
+  border-radius: var(--raggio);
+  padding: 18px 20px;
+  border: 2px solid transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.stato-piano p {
+  margin: 0;
+}
+.stato-piano .stato-titolo {
+  font-family: 'Domine', Georgia, serif;
+  font-size: 1.45rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.stato-piano.ok {
+  background: #e5f1ea;
+  border-color: var(--accento);
+  color: #1f3d32;
+}
+.stato-piano.attenzione {
+  background: var(--avviso-sfondo);
+  border-color: #d39b3a;
+  color: var(--avviso-testo);
+}
+.stato-piano.fermo {
+  background: #f8e8e6;
+  border-color: #c9796f;
+  color: #6b2a22;
+}
+.primario.continua {
+  font-size: 1.15rem;
+  min-height: 58px;
+}
+.titolo-piani {
+  margin-top: 12px;
+}
