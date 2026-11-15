@@ -175,3 +175,16 @@ indicazioni accanto alle voci ricevute. Le procedure cambiano: le voci vanno ric
 - Librerie: `libsodium-wrappers-sumo`, `shamir-secret-sharing` (verificata esternamente). Nessuna crittografia scritta in casa.
 
 Prima del lancio il nucleo di cifratura e il flusso di attivazione devono passare un test di sicurezza indipendente.
+
+## Carta MEMORIAE (NFC)
+
+- Chip **NXP NTAG 424 DNA** con «Secure Unique NFC»: a ogni lettura il chip scrive nel collegamento
+  `https://<app>/c?picc=…&cmac=…` l'UID e il contatore cifrati e un codice di controllo. Il server li verifica
+  (AN12196, AES-128) e rifiuta un collegamento già usato (contatore che non sale).
+- Chiavi: la «meta» (comune) e la «file» (diversa per ogni carta) si ricavano dalla chiave principale del server;
+  l'Operatore le legge in Operatore › Carte da spedire › «Chiavi» per programmare il chip (NXP TagXplorer o TagWriter).
+- La carta può solo **avvisare** le persone di fiducia (al massimo 3 avvisi al giorno) e mostrare il nome abbreviato:
+  non apre mai la cassaforte. Si attiva quando la proprietaria la avvicina con MEMORIAE aperta; si disattiva dall'app.
+- Ordine: CHF 25 a carta, pagamento con indirizzo di spedizione (solo CH e LI), conservato solo per l'ordine.
+- In prova, Operatore › «Prova la carta …» genera il collegamento che scriverebbe il chip: si prova tutto senza carta vera.
+- In produzione il server web deve servire `index.html` anche per l'indirizzo `/c` (come per tutte le pagine dell'app).

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { OperatoreCarte } from './CartaMemoriae';
 import { api, type SchedaDaRicontrollare, type CasoOperatore } from './api';
 import { salvaBytes } from './apertura';
 
@@ -89,6 +90,7 @@ export function Operatore({ prova }: { prova: boolean }) {
           </div>
         </div>
       ))}
+      <OperatoreCarte />
       <Catalogo />
       {altri.length > 0 && (
         <>

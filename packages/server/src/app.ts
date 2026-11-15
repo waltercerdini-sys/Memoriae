@@ -12,6 +12,7 @@ import { billingRoutes, trialCheckoutFactory } from './routes/billing';
 import { TrialProvider, type PaymentProvider } from './payments/provider';
 import { checkinRoutes } from './routes/checkin';
 import { ricordiRoutes } from './routes/ricordi';
+import { cardRoutes } from './routes/cards';
 import { personRoutes } from './routes/persons';
 import { recoveryRoutes } from './routes/recovery';
 import type { KeyCustody } from './storage/custody';
@@ -32,9 +33,11 @@ export interface AppOptions {
   activation?: ActivationOptions;
   /** Fornitore di pagamento. Predefinito: pagamenti di prova (nessun denaro si muove). */
   payments?: PaymentProvider;
+  /** Chiave madre delle carte NFC (da cui si ricavano le chiavi di ogni chip). Predefinito: casuale. */
+  chiaveCarte?: Uint8Array;
 }
 
-export function buildApp({ db, passkeys, blobs, mailer, custody, appOrigin, cookieSecure, logLevel = 'info', activation, payments }: AppOptions): FastifyInstance {
+export function buildApp({ db, passkeys, blobs, mailer, custody, appOrigin, cookieSecure, logLevel = 'info', activation, payments, chiaveCarte }: AppOptions): FastifyInstance {
   // Nei log solo metodo, percorso e stato: mai corpi delle richieste né dati personali.
   const app = Fastify({ logger: { level: logLevel }, bodyLimit: 1024 * 1024 });
 
@@ -84,7 +87,16 @@ export function buildApp({ db, passkeys, blobs, mailer, custody, appOrigin, cook
   app.register(personRoutes, { db, mailer, custody, appOrigin });
   app.register(checkinRoutes, { db });
   app.register(ricordiRoutes, { db });
-  app.register(billingRoutes, { db, mailer, appOrigin, payments: payments ?? new TrialProvider(trialCheckoutFactory(db), appOrigin) });
+  const pagamenti = payments ?? new TrialProvider(trialCheckoutFactory(db), appOrigin);
+  app.register(billingRoutes, { db, mailer, appOrigin, payments: pagamenti });
+  app.register(cardRoutes, {
+    db,
+    mailer,
+    appOrigin,
+    payments: pagamenti,
+    operatori: activation?.operatori ?? [],
+    chiaveMadre: chiaveCarte ?? new Uint8Array(randomBytes(32)),
+  });
   app.register(activationRoutes, { db, mailer, custody, blobs, appOrigin, ...(activation ?? { operatori: [], chiaveDocumenti: new Uint8Array(randomBytes(32)) }) });
 
   return app;

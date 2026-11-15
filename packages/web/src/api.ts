@@ -89,6 +89,35 @@ export interface SchedaDaRicontrollare {
 }
 
 export type Ruolo = 'fiduciario' | 'destinatario' | 'fiduciario-destinatario';
+export interface StatoCarte {
+  prezzo: number;
+  pagamentoDiProva: boolean;
+  carte: { id: string; finale: string; stato: 'spedita' | 'attiva' | 'disattivata'; attivataIl: string | null; creataIl: string }[];
+  ordini: { id: string; quantita: number; chf: number; stato: 'in-attesa' | 'pagato' | 'spedito'; regalo: boolean; spedizione: string | null; spedito: string | null; tracking: string | null; creatoIl: string }[];
+}
+export type EsitoCarta =
+  | { esito: 'non-valida' | 'ripetuta' | 'disattivata' | 'da-attivare' | 'attivata' }
+  | { esito: 'valida'; nome: string; token: string; tua: boolean; fiducia: boolean };
+export interface IndirizzoCarta {
+  nome: string;
+  riga1: string;
+  riga2?: string;
+  cap: string;
+  citta: string;
+  paese: 'CH' | 'LI';
+}
+export interface OrdineOperatore {
+  id: string;
+  stato: 'pagato' | 'spedito';
+  quantita: number;
+  regalo: boolean;
+  pagatoIl: string;
+  speditoIl: string | null;
+  tracking: string | null;
+  indirizzo: { nome: string | null; riga1: string | null; riga2: string | null; cap: string | null; citta: string | null; paese: string | null };
+  carte: string[];
+}
+
 export interface Fatto {
   chiave: string;
   da: string;
@@ -278,6 +307,18 @@ export const api = {
   vociRicevute: (id: string) => call<{ voci: VoceCondivisa[] }>('GET', `/v1/ricevuti/${id}/voci`),
   fileRicevuto: (id: string, itemId: string, fileId: string) => bytes(`/v1/ricevuti/${id}/voci/${itemId}/file/${fileId}`),
   /** Avanzamento delle pratiche dopo l'apertura, condiviso fra chi se ne occupa. */
+  carte: () => call<StatoCarte>('GET', '/v1/carte'),
+  ordinaCarte: (quantita: number, regalo: boolean) => call<{ url: string }>('POST', '/v1/carte/ordina', { quantita, regalo }),
+  disattivaCarta: (id: string) => call<{ ok: true }>('POST', `/v1/carte/${id}/disattiva`),
+  ordineCarteProva: (id: string) => call<{ quantita: number; chf: number; regalo: boolean; pagato: boolean }>('GET', `/v1/carte/ordini/${id}`),
+  pagaCarteProva: (id: string, indirizzo: IndirizzoCarta) => call<{ ok: true }>('POST', `/v1/carte/ordini/${id}/paga-prova`, indirizzo),
+  cartaToccata: (picc: string, cmac: string) => call<EsitoCarta>('GET', `/v1/carta?picc=${encodeURIComponent(picc)}&cmac=${encodeURIComponent(cmac)}`),
+  avvisaDaCarta: (token: string, messaggio: string, contatto: string) => call<{ avvisati: number }>('POST', '/v1/carta/avvisa', { token, messaggio, contatto }),
+  ordiniCarteOperatore: () => call<{ ordini: OrdineOperatore[] }>('GET', '/v1/operatore/carte/ordini'),
+  programmaCarta: (uid: string) => call<{ uid: string; chiaveMeta: string; chiaveFile: string; collegamento: string }>('GET', `/v1/operatore/carte/programma?uid=${uid}`),
+  abbinaCarta: (ordine: string, uid: string) => call<{ ok: true }>('POST', `/v1/operatore/carte/ordini/${ordine}/carte`, { uid }),
+  cartaSpedita: (ordine: string, tracking: string) => call<{ ok: true }>('POST', `/v1/operatore/carte/ordini/${ordine}/spedito`, { tracking }),
+  simulaCarta: (uid: string) => call<{ collegamento: string }>('GET', `/v1/operatore/carte/simula?uid=${uid}`),
   promemoriaRicordi: () => call<{ attivo: boolean }>('GET', '/v1/ricordi/promemoria'),
   impostaPromemoriaRicordi: (attivo: boolean) => call<{ attivo: boolean }>('PUT', '/v1/ricordi/promemoria', { attivo }),
   fatti: (dove: DoveFatti) => call<{ fatti: Fatto[] }>('GET', `${baseFatti(dove)}/fatti`),

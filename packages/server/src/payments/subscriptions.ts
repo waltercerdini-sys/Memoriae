@@ -1,3 +1,4 @@
+import { markCardOrderPaid } from '../cards/orders';
 import { and, eq, isNull, lte, or } from 'drizzle-orm';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { Database } from '../db/client';
@@ -94,6 +95,8 @@ export async function applyPaymentEvent(db: Database, mailer: Mailer, ev: Paymen
   if (inserted.length === 0) return 'già-visto';
 
   if (ev.kind === 'ignorato') return 'ignorato';
+
+  if (ev.kind === 'carte-pagate') return (await markCardOrderPaid(db, mailer, ev.orderId, ev.spedizione)) ? 'applicato' : 'ignorato';
 
   if (ev.kind === 'checkout-completato') {
     if (!ev.userId) return 'ignorato';

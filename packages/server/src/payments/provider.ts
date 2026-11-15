@@ -21,6 +21,27 @@ export interface CheckoutRequest {
   cancelUrl: string;
 }
 
+/** Prezzo di una Carta MEMORIAE (NFC), in franchi: venduta a parte, anche come regalo. */
+export const PREZZO_CARTA_CHF = 25;
+
+export interface CardCheckoutRequest {
+  orderId: string;
+  userId: string;
+  email: string;
+  quantity: number;
+  successUrl: string;
+  cancelUrl: string;
+}
+
+export interface IndirizzoSpedizione {
+  nome: string;
+  riga1: string;
+  riga2?: string | null;
+  cap: string;
+  citta: string;
+  paese: string;
+}
+
 /** Evento del fornitore, già verificato e tradotto nel linguaggio di MEMORIAE. */
 export type PaymentEvent =
   | {
@@ -36,11 +57,14 @@ export type PaymentEvent =
     }
   | { id: string; kind: 'checkout-completato'; userId: string; customerId: string; subscriptionId: string | null; plan: Plan | null }
   | { id: string; kind: 'pagamento-fallito'; customerId: string }
+  | { id: string; kind: 'carte-pagate'; orderId: string; spedizione: IndirizzoSpedizione | null }
   | { id: string; kind: 'ignorato'; type: string };
 
 export interface PaymentProvider {
   readonly name: 'prova' | 'stripe';
   createCheckout(req: CheckoutRequest): Promise<{ url: string }>;
+  /** Pagamento unico per le carte NFC, con l'indirizzo di spedizione chiesto dal fornitore. */
+  createCardCheckout(req: CardCheckoutRequest): Promise<{ url: string }>;
   /** Pagina del fornitore per cambiare metodo di pagamento, scaricare ricevute o disdire. */
   createPortal(customerId: string, returnUrl: string): Promise<{ url: string }>;
   /** Verifica la firma e traduce l'evento. Lancia un errore se la firma non è valida. */
@@ -130,6 +154,26 @@ export class StripeProvider implements PaymentProvider {
     return { url: s.url };
   }
 
+  async createCardCheckout(req: CardCheckoutRequest) {
+    const s = await this.post<{ url: string }>('checkout/sessions', {
+      mode: 'payment',
+      'line_items[0][price_data][currency]': 'chf',
+      'line_items[0][price_data][unit_amount]': PREZZO_CARTA_CHF * 100,
+      'line_items[0][price_data][product_data][name]': 'Carta MEMORIAE',
+      'line_items[0][quantity]': req.quantity,
+      // Spedizione solo in Svizzera e Liechtenstein; l'indirizzo può essere di chi riceve il regalo.
+      'shipping_address_collection[allowed_countries][0]': 'CH',
+      'shipping_address_collection[allowed_countries][1]': 'LI',
+      client_reference_id: req.userId,
+      customer_email: req.email,
+      'metadata[ordineCarte]': req.orderId,
+      locale: 'it',
+      success_url: req.successUrl,
+      cancel_url: req.cancelUrl,
+    });
+    return { url: s.url };
+  }
+
   async createPortal(customerId: string, returnUrl: string) {
     const s = await this.post<{ url: string }>('billing_portal/sessions', { customer: customerId, return_url: returnUrl, locale: 'it' });
     return { url: s.url };
@@ -142,6 +186,18 @@ export class StripeProvider implements PaymentProvider {
     const plan = (p: unknown): Plan | null => (p === 'essenziale' || p === 'famiglia' ? p : null);
     switch (ev.type) {
       case 'checkout.session.completed':
+        if (o.metadata?.ordineCarte) {
+          const sd = o.collected_information?.shipping_details ?? o.shipping_details ?? null;
+          const a = sd?.address;
+          return {
+            id: ev.id,
+            kind: 'carte-pagate',
+            orderId: String(o.metadata.ordineCarte),
+            spedizione: a
+              ? { nome: String(sd.name ?? ''), riga1: String(a.line1 ?? ''), riga2: a.line2 ?? null, cap: String(a.postal_code ?? ''), citta: String(a.city ?? ''), paese: String(a.country ?? '') }
+              : null,
+          };
+        }
         return {
           id: ev.id,
           kind: 'checkout-completato',
@@ -186,6 +242,11 @@ export class TrialProvider implements PaymentProvider {
   async createCheckout(req: CheckoutRequest) {
     const id = await this.createTrialCheckout(req);
     return { url: `${this.appOrigin}/?pagamento=${id}` };
+  }
+
+  /** In prova l'app mostra una pagina che chiede l'indirizzo, come farebbe Stripe. */
+  async createCardCheckout(req: CardCheckoutRequest) {
+    return { url: `${this.appOrigin}/?ordine-carte=${req.orderId}` };
   }
 
   async createPortal(_customerId: string, returnUrl: string) {

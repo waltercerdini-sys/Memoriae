@@ -7,10 +7,23 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import './pianoScelto';
 import { App } from './App';
+import { CartaToccata } from './CartaMemoriae';
 import './styles.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    {window.location.pathname === '/c' ? (
+      // Carta MEMORIAE avvicinata a un telefono: pagina pubblica, senza accesso.
+      <div className="pagina">
+        <header className="testata">
+          <span className="marchio">MEMORIAE</span>
+        </header>
+        <main className="contenuto">
+          <CartaToccata />
+        </main>
+      </div>
+    ) : (
+      <App />
+    )}
   </StrictMode>,
 );

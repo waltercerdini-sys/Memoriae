@@ -3,6 +3,7 @@ import { NOME_PIANO, pianoScelto } from './pianoScelto';
 import { api, ApiError, type Utente } from './api';
 import { Inventario, type InvitoInSospeso } from './Inventario';
 import { PagamentoProva } from './Piano';
+import { PagamentoCarteProva } from './CartaMemoriae';
 import { Recupero } from './Recupero';
 import { apriConPasskey, apriConPassword, creaCassaforte, metodoPer, type SegretoAccesso } from './vault';
 import { createPasskey, passkeysSupported, prfOnly, usePasskey } from './webauthn';
@@ -67,13 +68,18 @@ export function App() {
 
   // Ritorno dalla pagina di pagamento (o dalla pagina di prova).
   const [pagamento] = useState(() => new URLSearchParams(window.location.search).get('pagamento'));
+  const [ordineCarte] = useState(() => new URLSearchParams(window.location.search).get('ordine-carte'));
+  const inPagamento = !!pagamento || !!ordineCarte;
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
     const pagato = q.get('pagato');
     const portale = q.get('portale');
-    if (pagato === null && portale === null) return;
+    const carte = q.get('carte');
+    if (pagato === null && portale === null && carte === null) return;
     window.history.replaceState(null, '', window.location.pathname);
-    if (pagato === '1') setGrazie('Grazie! Il pagamento è andato a buon fine: il tuo piano è attivo. Riapri la cassaforte con la passkey.');
+    if (carte === 'pagate') setGrazie('Grazie! Abbiamo ricevuto l\'ordine della Carta MEMORIAE: ti scriviamo quando parte. Quando arriva, apri MEMORIAE e avvicinala al telefono.');
+    else if (carte === 'annullato') setGrazie('Ordine annullato: non ti è stato addebitato nulla.');
+    else if (pagato === '1') setGrazie('Grazie! Il pagamento è andato a buon fine: il tuo piano è attivo. Riapri la cassaforte con la passkey.');
     else if (pagato === '0') setGrazie('Pagamento annullato: non ti è stato addebitato nulla.');
     else setGrazie('In questa versione di prova non c\'è una pagina del servizio di pagamento da gestire.');
   }, []);
@@ -190,7 +196,8 @@ export function App() {
           </div>
         )}
         {pagamento && <PagamentoProva id={pagamento} />}
-        {!pagamento && s.nome === 'caricamento' && <p className="tenue">Un momento…</p>}
+        {ordineCarte && <PagamentoCarteProva id={ordineCarte} />}
+        {!inPagamento && s.nome === 'caricamento' && <p className="tenue">Un momento…</p>}
         {invito && s.nome !== 'inventario' && (
           <div className="riquadro evidenza">
             <h2>{invito.proprietario} ti ha scelto</h2>
@@ -211,7 +218,7 @@ export function App() {
           />
         )}
         {s.nome === 'codice' && <CodiceRecupero codice={s.codice} onFatto={() => setS({ nome: 'inventario', vaultId: s.vaultId, vaultKey: s.vaultKey })} />}
-        {!pagamento && s.nome === 'accesso' && (
+        {!inPagamento && s.nome === 'accesso' && (
           <section className="passo">
             <h1>Apri la tua cassaforte</h1>
             {s.messaggio && <p className="tenue">{s.messaggio}</p>}

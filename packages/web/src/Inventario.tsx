@@ -15,6 +15,7 @@ import { dimenticaPianoScelto, pianoScelto } from './pianoScelto';
 import { Anteprima } from './Anteprima';
 import { Fascicolo } from './Fascicolo';
 import { LibroRicordi } from './LibroRicordi';
+import { CartaMemoriae } from './CartaMemoriae';
 import { sincronizzaRilascio, type StatoRilascio } from './rilascio';
 import { aggiornaVoce, aggiungiDocumenti, aggiungiVoce, documentiDi, leggiVoci, MAX_DOCUMENTI, rimuoviDocumento, scaricaFile, sostituisciDocumento, type AzioneAccount, type ContenutoVoce, type Voce } from './vault';
 
@@ -57,7 +58,7 @@ export function Inventario({
   const [mieiCasi, setMieiCasi] = useState<Caso[]>([]);
   const [stato, setStato] = useState<StatoRilascio | null>(null);
   const [scheda, setScheda] = useState<'voci' | 'persone' | 'controllo' | 'altri' | 'operatore'>('voci');
-  const [vista, setVista] = useState<{ tipo: 'elenco' } | { tipo: 'nuova' } | { tipo: 'dettaglio'; id: string } | { tipo: 'piano' } | { tipo: 'trova' } | { tipo: 'lettera' } | { tipo: 'anteprima'; id: string | null } | { tipo: 'fascicolo' } | { tipo: 'ricordi' }>({ tipo: 'elenco' });
+  const [vista, setVista] = useState<{ tipo: 'elenco' } | { tipo: 'nuova' } | { tipo: 'dettaglio'; id: string } | { tipo: 'piano' } | { tipo: 'trova' } | { tipo: 'lettera' } | { tipo: 'anteprima'; id: string | null } | { tipo: 'fascicolo' } | { tipo: 'ricordi' } | { tipo: 'carta' }>({ tipo: 'elenco' });
 
   // Il tasto «indietro» del browser torna alla schermata precedente dentro MEMORIAE invece di uscire.
   useEffect(() => {
@@ -224,6 +225,10 @@ export function Inventario({
         onApriVoce={apri}
       />
     );
+  }
+
+  if (vista.tipo === 'carta') {
+    return <CartaMemoriae onIndietro={() => setVista({ tipo: 'elenco' })} />;
   }
 
   if (vista.tipo === 'ricordi') {
@@ -618,6 +623,9 @@ export function Inventario({
                 Fascicolo per il notaio
               </button>
             )}
+            <button className="secondario" onClick={() => setVista({ tipo: 'carta' })}>
+              💳 Carta MEMORIAE
+            </button>
             {voci && voci.length > 0 && (
               <button className="secondario" onClick={() => setVista({ tipo: 'trova' })}>
                 Trova tutto

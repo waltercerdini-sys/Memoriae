@@ -337,6 +337,56 @@ export const integrityAnchors = pgTable('integrity_anchors', {
 
 /** Registro eventi: si aggiunge, non si modifica (vincolo imposto anche da trigger nella migrazione). */
 /**
+ * Carta MEMORIAE (NFC). Il chip non contiene dati personali: a ogni lettura produce un collegamento
+ * firmato (UID e contatore cifrati). Una carta può solo avvisare le persone di fiducia, mai aprire la cassaforte.
+ */
+export const cardStatusEnum = pgEnum('card_status', ['spedita', 'attiva', 'disattivata']);
+export const cards = pgTable('cards', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  /** UID del chip, 14 caratteri esadecimali. */
+  uid: text('uid').notNull(),
+  vaultId: uuid('vault_id').notNull().references(() => vaults.id, { onDelete: 'cascade' }),
+  orderId: uuid('order_id'),
+  status: cardStatusEnum('status').notNull().default('spedita'),
+  /** Ultimo contatore di letture accettato: una lettura copiata o ripetuta non vale. */
+  lastCounter: integer('last_counter').notNull().default(-1),
+  activatedAt: timestamp('activated_at', { withTimezone: true }),
+  createdAt: createdAt(),
+}, (t) => [uniqueIndex('cards_uid_idx').on(t.uid)]);
+
+export const cardOrderStatusEnum = pgEnum('card_order_status', ['in-attesa', 'pagato', 'spedito', 'annullato']);
+/** Ordini di carte. L'indirizzo serve solo alla spedizione e resta separato dalla cassaforte. */
+export const cardOrders = pgTable('card_orders', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  vaultId: uuid('vault_id').notNull().references(() => vaults.id, { onDelete: 'cascade' }),
+  quantity: integer('quantity').notNull(),
+  amountChf: integer('amount_chf').notNull(),
+  status: cardOrderStatusEnum('status').notNull().default('in-attesa'),
+  gift: boolean('gift').notNull().default(false),
+  shippingName: text('shipping_name'),
+  shippingLine1: text('shipping_line1'),
+  shippingLine2: text('shipping_line2'),
+  shippingPostalCode: text('shipping_postal_code'),
+  shippingCity: text('shipping_city'),
+  shippingCountry: text('shipping_country'),
+  paidAt: timestamp('paid_at', { withTimezone: true }),
+  shippedAt: timestamp('shipped_at', { withTimezone: true }),
+  tracking: text('tracking'),
+  createdAt: createdAt(),
+});
+
+/** Lettura recente di una carta: chi l'ha avvicinata può mandare un avviso entro pochi minuti. */
+export const cardTaps = pgTable('card_taps', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  cardId: uuid('card_id').notNull().references(() => cards.id, { onDelete: 'cascade' }),
+  tokenHash: text('token_hash').notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  alertedAt: timestamp('alerted_at', { withTimezone: true }),
+  createdAt: createdAt(),
+}, (t) => [uniqueIndex('card_taps_token_idx').on(t.tokenHash)]);
+
+/**
  * Dopo l'apertura: cosa hanno già sistemato le persone che se ne occupano
  * (una voce: «account chiuso»; un passo dei primi giorni: «avvisata la cassa malati»).
  * La chiave è «voce:<id>» o «passo:<nome>»: il server non sa nulla del contenuto.

@@ -1,3 +1,4 @@
+import { createHmac } from 'node:crypto';
 import { createHash } from 'node:crypto';
 import { buildApp } from './app';
 import { createPasskeyService } from './auth/passkeys';
@@ -46,6 +47,8 @@ const app = buildApp({
   blobs: new LocalDiskBlobStore(config.BLOB_DIR),
   mailer,
   custody: new DevKeyCustody(db, masterKey),
+  // Chiave madre delle carte NFC, ricavata dalla chiave principale del server.
+  chiaveCarte: new Uint8Array(createHmac('sha256', Buffer.from(masterKey)).update('memoriae-carte-nfc').digest()),
   payments:
     config.PAYMENTS_PROVIDER === 'stripe'
       ? new StripeProvider({
