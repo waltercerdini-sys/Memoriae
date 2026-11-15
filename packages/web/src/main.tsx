@@ -8,7 +8,13 @@ import { createRoot } from 'react-dom/client';
 import './pianoScelto';
 import { App } from './App';
 import { CartaToccata } from './CartaMemoriae';
+import { PulsanteAiuto, useAiuto } from './aiuto';
 import './styles.css';
+
+function AiutoCarta() {
+  useAiuto('carta-toccata');
+  return null;
+}
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -17,8 +23,10 @@ createRoot(document.getElementById('root')!).render(
       <div className="pagina">
         <header className="testata">
           <span className="marchio">MEMORIAE</span>
+          <PulsanteAiuto />
         </header>
         <main className="contenuto">
+          <AiutoCarta />
           <CartaToccata />
         </main>
       </div>

@@ -5,6 +5,7 @@ import { Inventario, type InvitoInSospeso } from './Inventario';
 import { PagamentoProva } from './Piano';
 import { PagamentoCarteProva } from './CartaMemoriae';
 import { Recupero } from './Recupero';
+import { PulsanteAiuto, useAiuto, type PaginaAiuto } from './aiuto';
 import { apriConPasskey, apriConPassword, creaCassaforte, metodoPer, type SegretoAccesso } from './vault';
 import { createPasskey, passkeysSupported, prfOnly, usePasskey } from './webauthn';
 
@@ -156,10 +157,20 @@ export function App() {
       setS({ nome: 'benvenuto' });
     });
 
+  const paginaAiuto: PaginaAiuto | null = ordineCarte
+    ? 'pagamento-carta'
+    : pagamento
+      ? 'piano'
+      : s.nome === 'caricamento' || s.nome === 'inventario'
+        ? null
+        : s.nome;
+  useAiuto(paginaAiuto);
+
   return (
     <div className="pagina">
       <header className="testata">
         <span className="marchio">MEMORIAE</span>
+        <PulsanteAiuto />
         {utente && s.nome !== 'benvenuto' && (
           <button className="link" onClick={esci} disabled={occupato}>
             Esci

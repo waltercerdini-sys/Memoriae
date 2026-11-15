@@ -6,6 +6,7 @@ import { FUNZIONI_EREDE } from './contattoErede';
 import { apriCaso, apriRicevuto, salvaFileAperto, type EsitoApertura, type VoceAperta } from './apertura';
 import { etichettaFatto, letteraPerVoce } from './letteraRichiesta';
 import { PrimiGiorni } from './PrimiGiorni';
+import { useAiuto } from './aiuto';
 import { Ascolta } from './LibroRicordi';
 import { decryptFile } from '@memoriae/crypto';
 import { contestoFile } from './vault';
@@ -95,6 +96,8 @@ export function Fiducia({ vaultKey, mioNome }: { vaultKey: Uint8Array; mioNome: 
       setOccupato(false);
     }
   }
+
+  useAiuto(aperto || ricevutoAperto ? 'cassaforte-ricevuta' : null, { decesso: (aperto ? aperto.esito.ambito : ricevutoAperto?.r.ambito) === 'decesso' }, 1);
 
   if (aperto) {
     const { esito, casoId } = aperto;

@@ -16,6 +16,7 @@ import { Anteprima } from './Anteprima';
 import { Fascicolo } from './Fascicolo';
 import { LibroRicordi } from './LibroRicordi';
 import { CartaMemoriae } from './CartaMemoriae';
+import { useAiuto, type PaginaAiuto } from './aiuto';
 import { sincronizzaRilascio, type StatoRilascio } from './rilascio';
 import { aggiornaVoce, aggiungiDocumenti, aggiungiVoce, documentiDi, leggiVoci, MAX_DOCUMENTI, rimuoviDocumento, scaricaFile, sostituisciDocumento, type AzioneAccount, type ContenutoVoce, type Voce } from './vault';
 
@@ -155,6 +156,30 @@ export function Inventario({
       if (t) clearTimeout(t);
     };
   }, [vista, scheda, ultima, voci]);
+
+  // Aiuto contestuale: la pagina aperta e la situazione, per suggerire il passo giusto.
+  const SCHEDA_AIUTO: Record<typeof scheda, PaginaAiuto> = { voci: 'voci', ricordi: 'ricordi', persone: 'persone', controllo: 'protezione', altri: 'altri', operatore: 'operatore' };
+  const VISTA_AIUTO: Record<Exclude<typeof vista.tipo, 'elenco' | 'dettaglio'>, PaginaAiuto> = {
+    nuova: 'voce-nuova', piano: 'piano', trova: 'trova', lettera: 'lettera', anteprima: 'anteprima', fascicolo: 'fascicolo', ricordi: 'libro', carta: 'carta',
+  };
+  const paginaAiuto: PaginaAiuto =
+    vista.tipo === 'elenco'
+      ? SCHEDA_AIUTO[scheda]
+      : vista.tipo === 'dettaglio'
+        ? voci?.find((v) => v.id === vista.id)?.tipo === 'lettera'
+          ? 'lettera'
+          : 'voce'
+        : VISTA_AIUTO[vista.tipo];
+  useAiuto(paginaAiuto, {
+    voci: vociElenco?.length ?? 0,
+    daCompletare: prontezza?.daCompletare ?? 0,
+    persone: persone.length,
+    fiduciari: persone.filter((x) => x.ruolo !== 'destinatario' && x.statoInvito === 'accettato').length,
+    daInvitare: persone.filter((x) => !x.soloLettere && x.email && x.statoInvito !== 'accettato').length,
+    lettere: lettere.length,
+    ricordi: ricordi.length,
+    controlloAttivo,
+  });
 
   async function bloccaMio(id: string, chiudi: boolean) {
     setErrore(null);

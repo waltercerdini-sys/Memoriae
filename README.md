@@ -79,6 +79,7 @@ node e2e/persone.mjs                       # persone di fiducia, invito via e-ma
 # con ATTESA_PROVA_SECONDI=5 JOBS_INTERVAL_SECONDS=5 npm run prova:
 MAIL_OUTBOX=data/posta.log node e2e/attivazione.mjs   # richiesta, blocco, verifica, attesa, apertura, consegna
 node e2e/piano.mjs                                    # prova gratuita, scelta del piano, pagamento simulato
+node e2e/aiuto.mjs                                    # aiuto contestuale: prima visita, pulsante, passi secondo la situazione
 ```
 
 In sviluppo le e-mail (per esempio il codice di recupero) non vengono spedite: compaiono nel terminale
@@ -190,3 +191,15 @@ Prima del lancio il nucleo di cifratura e il flusso di attivazione devono passar
 - Fornitore delle carte: Cardnology (Sasso Marconi, BO). Chip richiesto: NTAG 424 DNA con SUN (SDM) attivo.
 - In prova, Operatore › «Prova la carta …» genera il collegamento che scriverebbe il chip: si prova tutto senza carta vera.
 - In produzione il server web deve servire `index.html` anche per l'indirizzo `/c` (come per tutte le pagine dell'app).
+
+## Aiuto contestuale
+
+In ogni pagina c'è il pulsante «? Aiuto» nella testata (`packages/web/src/aiuto.tsx`). Il riquadro ha tre parti:
+«Qui puoi», «Cosa fare adesso» (i passi cambiano secondo la situazione: cassaforte vuota, voci da completare,
+nessuna persona di fiducia, controllo in pausa…) e il capitolo della guida.
+
+- Ogni parte dell'app dichiara la sua pagina con `useAiuto(pagina, contesto)`; i testi stanno tutti in `AIUTO`.
+- Alla prima visita di una pagina l'aiuto si apre da solo, una volta (ricordato nel browser). Nei test automatici no,
+  salvo `localStorage['memoriae-aiuto-auto'] = 'si'`.
+- `VITE_GUIDA_URL`: indirizzo della guida in PDF sul sito; se c'è, il nome del capitolo diventa un collegamento.
+
