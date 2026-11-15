@@ -11,6 +11,7 @@ import { funzioneErede } from './contattoErede';
 import { TrovaTutto } from './TrovaTutto';
 import { dataLunga, FoglioLettera, NuovaLettera, nomiDestinatari } from './Lettere';
 import { Persone } from './Persone';
+import { dimenticaPianoScelto, pianoScelto } from './pianoScelto';
 import { Anteprima } from './Anteprima';
 import { Fascicolo } from './Fascicolo';
 import { sincronizzaRilascio, type StatoRilascio } from './rilascio';
@@ -105,6 +106,13 @@ export function Inventario({
       setErrore(e instanceof Error ? e.message : 'Errore nel caricare la cassaforte');
     }
   }, [vaultId, vaultKey]);
+
+  // Piano scelto sul sito: dopo l'accesso si apre la pagina del piano con quella scelta in evidenza.
+  useEffect(() => {
+    const sc = pianoScelto();
+    if (sc === 'essenziale' || sc === 'famiglia') setVista({ tipo: 'piano' });
+    else if (sc === 'prova') dimenticaPianoScelto();
+  }, []);
 
   useEffect(() => {
     void ricarica();

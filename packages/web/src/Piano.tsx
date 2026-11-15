@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { dimenticaPianoScelto, pianoScelto } from './pianoScelto';
 import { api, type OffertaPiano, type StatoPiano } from './api';
 
 const data = (s: string) => new Date(s).toLocaleDateString('it-CH', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -31,6 +32,9 @@ export function RigaPiano({ st, onApri }: { st: StatoPiano | null; onApri: () =>
 
 /** Il tuo piano: prezzi, pagamento con TWINT o carta, piano Famiglia. */
 export function Piano({ onIndietro }: { onIndietro: () => void }) {
+  // Il piano scelto sul sito va in cima, in evidenza; poi non serve più ricordarlo.
+  const [scelto] = useState(() => pianoScelto());
+  useEffect(() => dimenticaPianoScelto(), []);
   const [st, setSt] = useState<StatoPiano | null>(null);
   const [offerte, setOfferte] = useState<OffertaPiano[]>([]);
   const [prova, setProva] = useState(false);
@@ -70,8 +74,8 @@ export function Piano({ onIndietro }: { onIndietro: () => void }) {
 
   return (
     <section className="passo">
-      <button className="link" onClick={onIndietro}>
-        ← Torna alla cassaforte
+      <button className="link indietro" onClick={onIndietro}>
+        ‹ Torna alla cassaforte
       </button>
       <h1>Il tuo piano</h1>
 
@@ -104,8 +108,9 @@ export function Piano({ onIndietro }: { onIndietro: () => void }) {
       </div>
 
       {!attivo &&
-        offerte.map((o) => (
-          <div key={o.id} className="riquadro">
+        [...offerte].sort((a, b) => Number(b.id === scelto) - Number(a.id === scelto)).map((o) => (
+          <div key={o.id} className={`riquadro ${o.id === scelto ? 'evidenza' : ''}`}>
+            {o.id === scelto && <p className="etichetta">Il piano che hai scelto</p>}
             <h2>
               {o.nome} – CHF {o.chfAnno} all'anno
             </h2>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { NOME_PIANO, pianoScelto } from './pianoScelto';
 import { api, ApiError, type Utente } from './api';
 import { Inventario, type InvitoInSospeso } from './Inventario';
 import { PagamentoProva } from './Piano';
@@ -264,6 +265,15 @@ function Benvenuto(p: { supportato: boolean; onCrea: () => void; onAccedi: () =>
         Un posto sicuro per l'elenco dei tuoi account, i documenti importanti e le tue volontà. Tutto viene cifrato su questo
         dispositivo: nemmeno noi possiamo leggerlo.
       </p>
+      {(() => {
+        const sc = pianoScelto();
+        return sc && sc !== 'prova' ? (
+          <p className="riquadro evidenza">
+            Hai scelto il piano <strong>{NOME_PIANO[sc]}</strong>. Prima crea la tua cassaforte: i primi 30 giorni sono gratuiti e subito dopo
+            potrai attivare il piano.
+          </p>
+        ) : null;
+      })()}
       {!p.supportato && <p className="avviso">Questo browser non supporta le passkey. Usa un browser aggiornato (Safari, Chrome, Edge, Firefox).</p>}
       <button className="primario" onClick={p.onCrea} disabled={!p.supportato}>
         Crea la tua cassaforte
