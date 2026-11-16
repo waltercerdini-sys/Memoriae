@@ -1001,3 +1001,26 @@ a.bottone {
     display: none !important;
   }
 }
+
+/* Magazzino carte: il pulsante per importare il file del fornitore */
+label.carica-file {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  min-height: 56px;
+  padding: 12px 20px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+label.carica-file input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+label.carica-file:focus-within {
+  outline: 3px solid var(--accento);
+  outline-offset: 2px;
+}

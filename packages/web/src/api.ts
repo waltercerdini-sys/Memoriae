@@ -96,7 +96,7 @@ export interface StatoCarte {
   ordini: { id: string; quantita: number; chf: number; stato: 'in-attesa' | 'pagato' | 'spedito'; regalo: boolean; spedizione: string | null; spedito: string | null; tracking: string | null; creatoIl: string }[];
 }
 export type EsitoCarta =
-  | { esito: 'non-valida' | 'ripetuta' | 'disattivata' | 'da-attivare' | 'attivata' }
+  | { esito: 'non-valida' | 'ripetuta' | 'disattivata' | 'da-attivare' | 'attivata' | 'magazzino' }
   | { esito: 'valida'; nome: string; token: string; tua: boolean; fiducia: boolean };
 export interface IndirizzoCarta {
   nome: string;
@@ -107,6 +107,24 @@ export interface IndirizzoCarta {
   cap: string;
   citta: string;
   paese: 'CH' | 'LI';
+}
+export interface LottoCarte {
+  id: string;
+  nome: string;
+  fornitore: string | null;
+  quantita: number;
+  creatoIl: string;
+  /** Carte di cui il fornitore ha consegnato l'UID. */
+  registrate: number;
+  inMagazzino: number;
+  assegnate: number;
+}
+export interface DatiFornitore {
+  nome: string;
+  chiaveMeta: string;
+  chiaveFile: string;
+  collegamento: string;
+  codici: { numero: number; codice: string; qr: string }[];
 }
 export interface OrdineOperatore {
   id: string;
@@ -315,10 +333,16 @@ export const api = {
   ordineCarteProva: (id: string) => call<{ quantita: number; chf: number; regalo: boolean; pagato: boolean }>('GET', `/v1/carte/ordini/${id}`),
   pagaCarteProva: (id: string, indirizzo: IndirizzoCarta) => call<{ ok: true }>('POST', `/v1/carte/ordini/${id}/paga-prova`, indirizzo),
   cartaToccata: (picc: string, cmac: string) => call<EsitoCarta>('GET', `/v1/carta?picc=${encodeURIComponent(picc)}&cmac=${encodeURIComponent(cmac)}`),
+  cartaDaQr: (codice: string) => call<EsitoCarta>('GET', `/v1/carta?q=${encodeURIComponent(codice)}`),
+  lottiCarte: () => call<{ lotti: LottoCarte[] }>('GET', '/v1/operatore/carte/lotti'),
+  nuovoLottoCarte: (nome: string, fornitore: string, quantita: number) => call<{ id: string }>('POST', '/v1/operatore/carte/lotti', { nome, fornitore, quantita }),
+  datiFornitore: (lotto: string) => call<DatiFornitore>('GET', `/v1/operatore/carte/lotti/${lotto}/fornitore`),
+  importaLottoCarte: (lotto: string, csv: string) =>
+    call<{ registrate: number; gia: number; nErrori: number; errori: { riga: number; motivo: string }[] }>('POST', `/v1/operatore/carte/lotti/${lotto}/importa`, { csv }),
   avvisaDaCarta: (token: string, messaggio: string, contatto: string) => call<{ avvisati: number }>('POST', '/v1/carta/avvisa', { token, messaggio, contatto }),
   ordiniCarteOperatore: () => call<{ ordini: OrdineOperatore[] }>('GET', '/v1/operatore/carte/ordini'),
   programmaCarta: (uid: string) => call<{ uid: string; chiaveMeta: string; chiaveFile: string; collegamento: string }>('GET', `/v1/operatore/carte/programma?uid=${uid}`),
-  abbinaCarta: (ordine: string, uid: string) => call<{ ok: true }>('POST', `/v1/operatore/carte/ordini/${ordine}/carte`, { uid }),
+  abbinaCarta: (ordine: string, codice: string) => call<{ ok: true }>('POST', `/v1/operatore/carte/ordini/${ordine}/carte`, { codice }),
   cartaSpedita: (ordine: string, tracking: string) => call<{ ok: true }>('POST', `/v1/operatore/carte/ordini/${ordine}/spedito`, { tracking }),
   simulaCarta: (uid: string) => call<{ collegamento: string }>('GET', `/v1/operatore/carte/simula?uid=${uid}`),
   promemoriaRicordi: () => call<{ attivo: boolean }>('GET', '/v1/ricordi/promemoria'),

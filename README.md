@@ -189,6 +189,16 @@ Prima del lancio il nucleo di cifratura e il flusso di attivazione devono passar
 - Ordine: CHF 25 a carta, pagamento con indirizzo di spedizione (solo CH e LI), conservato solo per l'ordine.
   Campo facoltativo «Presso (c/o)» per chi vive in una casa per anziani o da parenti (su Stripe è un campo personalizzato).
 - Fornitore delle carte: Cardnology (Sasso Marconi, BO). Chip richiesto: NTAG 424 DNA con SUN (SDM) attivo.
+- **Lotti del fornitore** (strada scelta): Operatore › Magazzino carte › «Nuovo lotto». Il server genera un codice per il QR
+  di ogni carta (12 caratteri, senza 0/O/1/I/L) e la chiave «file» del lotto (HMAC della chiave madre con l'id del lotto;
+  la chiave «meta» è comune a tutte le carte). Al fornitore vanno il collegamento, le due chiavi (separate dal file) e il CSV
+  dei codici. Alla consegna rimanda un file con UID e codice per ogni carta: «Importa il file del fornitore» le mette in
+  magazzino. Per un ordine si scrive il codice stampato sotto il QR e si preme «Abbina all'ordine».
+  Se la chiave di un lotto uscisse, permetterebbe solo falsi avvisi «carta trovata»: la carta non apre mai la cassaforte.
+- **QR di riserva** (`/c?q=CODICE`) per i telefoni senza NFC: è fisso, quindi senza controllo del contatore; gli avvisi
+  restano limitati a 3 al giorno per carta. Una carta in magazzino non dice nulla del proprietario.
+- Carte vergini programmate da noi (strada B, per piccole prove): si scrive l'UID al posto del codice e si usa
+  «Chiavi (carta vergine)»; la chiave «file» è ricavata dall'UID.
 - In prova, Operatore › «Prova la carta …» genera il collegamento che scriverebbe il chip: si prova tutto senza carta vera.
 - In produzione il server web deve servire `index.html` anche per l'indirizzo `/c` (come per tutte le pagine dell'app).
 

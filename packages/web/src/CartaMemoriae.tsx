@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api, type EsitoCarta, type IndirizzoCarta, type OrdineOperatore, type StatoCarte } from './api';
+import { api, type DatiFornitore, type EsitoCarta, type IndirizzoCarta, type LottoCarte, type OrdineOperatore, type StatoCarte } from './api';
 
 const giorno = (s: string) => new Date(s).toLocaleDateString('it-CH', { day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -17,7 +17,8 @@ export function CartaToccata() {
   const [avvisati, setAvvisati] = useState<number | null>(null);
 
   useEffect(() => {
-    lettura ??= api.cartaToccata(q.get('picc') ?? '', q.get('cmac') ?? '');
+    // Dal chip (collegamento sempre nuovo) o dal QR di riserva stampato sulla carta.
+    lettura ??= q.get('q') ? api.cartaDaQr(q.get('q')!) : api.cartaToccata(q.get('picc') ?? '', q.get('cmac') ?? '');
     lettura
       .then(setEsito)
       .catch((e: Error) => setErrore(e.message));
@@ -42,6 +43,13 @@ export function CartaToccata() {
           <>
             <h1>Avvicina di nuovo la carta</h1>
             <p>Questo collegamento è già stato usato. Per sicurezza ogni lettura vale una volta sola: avvicina di nuovo la carta al telefono.</p>
+          </>
+        );
+      case 'magazzino':
+        return (
+          <>
+            <h1>Carta non ancora consegnata</h1>
+            <p>Questa Carta MEMORIAE è nuova e non appartiene ancora a nessuno. Non serve fare nulla.</p>
           </>
         );
       case 'disattivata':
@@ -369,8 +377,10 @@ export function OperatoreCarte() {
   const [chiavi, setChiavi] = useState<{ uid: string; chiaveMeta: string; chiaveFile: string; collegamento: string } | null>(null);
   const [errore, setErrore] = useState<string | null>(null);
   const [simulato, setSimulato] = useState<string | null>(null);
+  const [giro, setGiro] = useState(0);
   const carica = useCallback(() => {
     api.ordiniCarteOperatore().then((r) => setOrdini(r.ordini)).catch((e: Error) => setErrore(e.message));
+    setGiro((g) => g + 1);
   }, []);
   useEffect(carica, [carica]);
   if (!ordini) return null;
@@ -409,24 +419,30 @@ export function OperatoreCarte() {
             {o.indirizzo.cap} {o.indirizzo.citta}
           </address>
           <ol className="passi-carta">
-            <li>
-              Leggi l'UID del chip (7 byte) con il lettore NFC e premi «Chiavi» per avere le chiavi e il collegamento da scrivere nella carta.
-            </li>
-            <li>Dopo averla programmata, abbinala all'ordine. Carte abbinate: {o.carte.length} di {o.quantita}.</li>
+            <li>Prendi una carta dal magazzino e scrivi il codice stampato sotto il QR (per esempio 7K3Q-PX2D-M9TA).</li>
+            <li>Premi «Abbina all'ordine». Carte abbinate: {o.carte.length} di {o.quantita}.</li>
           </ol>
           {o.carte.length > 0 && <p className="tenue">UID abbinati: {o.carte.join(', ')}</p>}
           {o.carte.length < o.quantita && (
             <div className="riga-campi">
               <label>
-                UID della carta
-                <input value={uid[o.id] ?? ''} onChange={(e) => setUid({ ...uid, [o.id]: e.target.value.replace(/[^0-9a-fA-F]/g, '').toUpperCase() })} maxLength={14} placeholder="04A1B2C3D4E5F6" />
+                Codice della carta (o UID)
+                <input
+                  value={uid[o.id] ?? ''}
+                  onChange={(e) => setUid({ ...uid, [o.id]: e.target.value.replace(/[^0-9a-zA-Z-]/g, '').toUpperCase() })}
+                  maxLength={16}
+                  placeholder="7K3Q-PX2D-M9TA"
+                  autoComplete="off"
+                />
               </label>
-              <button className="secondario" disabled={(uid[o.id] ?? '').length !== 14} onClick={() => fai(api.programmaCarta(uid[o.id]!).then(setChiavi))}>
-                Chiavi
-              </button>
+              {/^[0-9A-F]{14}$/.test(uid[o.id] ?? '') && (
+                <button className="secondario" onClick={() => fai(api.programmaCarta(uid[o.id]!).then(setChiavi))}>
+                  Chiavi (carta vergine)
+                </button>
+              )}
               <button
                 className="secondario"
-                disabled={(uid[o.id] ?? '').length !== 14}
+                disabled={(uid[o.id] ?? '').replace(/-/g, '').length < 12}
                 onClick={() =>
                   fai(
                     api.abbinaCarta(o.id, uid[o.id]!).then(() => {
@@ -475,6 +491,7 @@ export function OperatoreCarte() {
           <p className="tenue">Le chiavi sono riservate: non conservarle altrove. Si possono rigenerare qui dall'UID.</p>
         </div>
       )}
+      <MagazzinoCarte giro={giro} />
       {spediti.length > 0 && (
         <>
           <h3>Spedite di recente</h3>
@@ -507,3 +524,160 @@ export function OperatoreCarte() {
     </>
   );
 }
+
+/** Scarica un testo come file (il CSV per il fornitore). */
+function scaricaTesto(nome: string, testo: string) {
+  const url = URL.createObjectURL(new Blob(['\ufeff' + testo], { type: 'text/csv;charset=utf-8' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nome;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/**
+ * Magazzino delle carte prodotte dal fornitore: si crea un lotto (codici dei QR e chiavi da mandare al fornitore),
+ * alla consegna si importa il suo file con gli UID e le carte sono pronte da abbinare agli ordini.
+ */
+function MagazzinoCarte({ giro }: { giro: number }) {
+  const [lotti, setLotti] = useState<LottoCarte[] | null>(null);
+  const [nuovo, setNuovo] = useState({ nome: '', fornitore: 'Cardnology', quantita: '200' });
+  const [dati, setDati] = useState<(DatiFornitore & { id: string }) | null>(null);
+  const [esitoImport, setEsitoImport] = useState<string | null>(null);
+  const [errore, setErrore] = useState<string | null>(null);
+  const carica = useCallback(() => {
+    api.lottiCarte().then((r) => setLotti(r.lotti)).catch((e: Error) => setErrore(e.message));
+  }, []);
+  // Si aggiorna anche quando un ordine prende una carta dal magazzino.
+  useEffect(carica, [carica, giro]);
+  if (!lotti) return null;
+  const pronte = lotti.reduce((s, l) => s + l.inMagazzino, 0);
+
+  const importa = (l: LottoCarte, file: File) => {
+    setErrore(null);
+    setEsitoImport(null);
+    file
+      .text()
+      .then((csv) => api.importaLottoCarte(l.id, csv))
+      .then((r) => {
+        setEsitoImport(
+          `Lotto «${l.nome}»: ${r.registrate === 1 ? '1 carta registrata' : `${r.registrate} carte registrate`}` +
+            (r.gia ? `, ${r.gia} già presenti` : '') +
+            (r.nErrori ? `. Righe da controllare (${r.nErrori}): ${r.errori.map((e) => `riga ${e.riga} – ${e.motivo}`).join('; ')}` : '.'),
+        );
+        carica();
+      })
+      .catch((e: Error) => setErrore(e.message));
+  };
+
+  return (
+    <>
+      <h2>Magazzino carte</h2>
+      <p>
+        Carte pronte da spedire: <strong>{pronte}</strong>
+      </p>
+      {lotti.map((l) => (
+        <div key={l.id} className="riquadro lotto-carte">
+          <p>
+            <strong>{l.nome}</strong>
+            {l.fornitore && ` · ${l.fornitore}`} · creato il {giorno(l.creatoIl)}
+          </p>
+          <p className="tenue">
+            {l.quantita} carte ordinate · {l.registrate} consegnate · {l.inMagazzino} in magazzino · {l.assegnate} assegnate
+          </p>
+          <div className="azioni-voci">
+            <button className="secondario" onClick={() => api.datiFornitore(l.id).then((d) => setDati({ ...d, id: l.id })).catch((e: Error) => setErrore(e.message))}>
+              Dati per il fornitore
+            </button>
+            <label className="bottone secondario carica-file">
+              Importa il file del fornitore
+              <input
+                type="file"
+                accept=".csv,.txt,text/csv,text/plain"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = '';
+                  if (f) importa(l, f);
+                }}
+              />
+            </label>
+          </div>
+          {dati?.id === l.id && (
+            <div className="riquadro evidenza chiavi-carta">
+              <p>
+                <strong>Da mandare al fornitore</strong> per programmare le {dati.codici.length} carte (NTAG 424 DNA, SUN/SDM con PICC cifrato e CMAC,
+                secondo NXP AN12196), e da cui ricevere alla consegna un file con UID e codice di ogni carta.
+              </p>
+              <dl>
+                <dt>Collegamento da scrivere nel chip (NDEF URL)</dt>
+                <dd>
+                  <code>{dati.collegamento}</code>
+                </dd>
+                <dt>Chiave SDM Meta Read (chiave 1)</dt>
+                <dd>
+                  <code>{dati.chiaveMeta}</code>
+                </dd>
+                <dt>Chiave SDM File Read (chiave 2), solo per questo lotto</dt>
+                <dd>
+                  <code>{dati.chiaveFile}</code>
+                </dd>
+              </dl>
+              <button
+                className="secondario"
+                onClick={() =>
+                  scaricaTesto(
+                    `codici-qr-${dati.nome.replace(/[^a-zA-Z0-9]+/g, '-')}.csv`,
+                    ['numero;codice;qr', ...dati.codici.map((c) => `${c.numero};${c.codice};${c.qr}`)].join('\r\n'),
+                  )
+                }
+              >
+                Scarica i codici dei QR (CSV)
+              </button>
+              <p className="tenue">
+                Le chiavi mandale in un messaggio separato dal file, mai per e-mail insieme. Ogni carta riceve un QR diverso, con il codice stampato
+                sotto: è quello che scriverai per abbinarla a un ordine.
+              </p>
+            </div>
+          )}
+        </div>
+      ))}
+      <form
+        className="riquadro"
+        onSubmit={(e) => {
+          e.preventDefault();
+          setErrore(null);
+          api
+            .nuovoLottoCarte(nuovo.nome, nuovo.fornitore, Number(nuovo.quantita))
+            .then((r) => {
+              setNuovo({ ...nuovo, nome: '' });
+              carica();
+              return api.datiFornitore(r.id).then((d) => setDati({ ...d, id: r.id }));
+            })
+            .catch((err: Error) => setErrore(err.message));
+        }}
+      >
+        <h3>Nuovo lotto</h3>
+        <label>
+          Nome del lotto
+          <input required maxLength={80} value={nuovo.nome} onChange={(e) => setNuovo({ ...nuovo, nome: e.target.value })} placeholder="Per esempio: Cardnology gennaio 2027" />
+        </label>
+        <div className="riga-campi">
+          <label>
+            Fornitore
+            <input maxLength={80} value={nuovo.fornitore} onChange={(e) => setNuovo({ ...nuovo, fornitore: e.target.value })} />
+          </label>
+          <label>
+            Numero di carte
+            <input required type="number" min={1} max={5000} value={nuovo.quantita} onChange={(e) => setNuovo({ ...nuovo, quantita: e.target.value })} />
+          </label>
+        </div>
+        <button className="primario" type="submit">
+          Crea il lotto
+        </button>
+      </form>
+      {esitoImport && <p className="esito">{esitoImport}</p>}
+      {errore && <p className="avviso">{errore}</p>}
+    </>
+  );
+}
+

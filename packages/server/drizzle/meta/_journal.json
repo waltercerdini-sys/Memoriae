@@ -120,6 +120,13 @@
       "when": 1794741209727,
       "tag": "0016_presso_spedizione",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1794851595300,
+      "tag": "0017_lotti_carte",
+      "breakpoints": true
     }
   ]
 }

@@ -268,7 +268,8 @@ export const AIUTO: Record<PaginaAiuto, TestoAiuto> = {
     passi: () => [
       'Controlla i documenti di ogni richiesta e approvala o rifiutala.',
       'Rivedi le istruzioni dei servizi segnalate come cambiate.',
-      'Per le carte: chiavi, abbinamento all\'ordine, spedizione.',
+      'Carte: scrivi il codice stampato sotto il QR, «Abbina all\'ordine», poi «Spedito».',
+      'Nuove carte dal fornitore: crea un lotto, manda i dati e alla consegna importa il suo file.',
     ],
     capitolo: 'Chi controlla le aperture',
   },

@@ -98,9 +98,33 @@ export function chiaviCarta(chiaveMadre: Buffer, uidHex?: string) {
   };
 }
 
+/**
+ * Chiave «file» comune a tutte le carte di un lotto programmato dal fornitore.
+ * Il fornitore non conosce gli UID in anticipo: riceve una sola chiave per il lotto.
+ * Se uscisse, permetterebbe al massimo falsi avvisi «carta trovata»: la carta non apre mai la cassaforte.
+ */
+export function chiaveFileLotto(chiaveMadre: Buffer, lottoId: string): Buffer {
+  return createHmac('sha256', chiaveMadre).update(`memoriae-lotto-file:${lottoId}`).digest().subarray(0, 16);
+}
+
+/** Codice stampato sotto il QR di riserva: 12 caratteri senza quelli che si confondono (0/O, 1/I/L). */
+const ALFABETO_QR = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
+export function nuovoCodiceQr(): string {
+  const b = randomBytes(12);
+  return Array.from(b, (x) => ALFABETO_QR[x % ALFABETO_QR.length]).join('');
+}
+/** «ABCD-EFGH-JKMN» → «ABCDEFGHJKMN»; accetta anche il collegamento intero del QR. Null se non è un codice. */
+export function normalizzaCodiceQr(testo: string): string | null {
+  const t = testo.trim();
+  const daUrl = /[?&]q=([A-Za-z0-9-]+)/.exec(t)?.[1];
+  const c = (daUrl ?? t).replace(/[\s-]/g, '').toUpperCase();
+  return c.length === 12 && [...c].every((x) => ALFABETO_QR.includes(x)) ? c : null;
+}
+export const formattaCodiceQr = (c: string) => `${c.slice(0, 4)}-${c.slice(4, 8)}-${c.slice(8)}`;
+
 /** Come scriverebbe il chip il collegamento per una lettura (per le prove senza carta vera). */
-export function simulaLettura(chiaveMadre: Buffer, uidHex: string, contatore: number): { picc: string; cmac: string } {
-  const k = chiaviCarta(chiaveMadre, uidHex);
+export function simulaLettura(chiaveMadre: Buffer, uidHex: string, contatore: number, chiaveFile?: Buffer): { picc: string; cmac: string } {
+  const k = { ...chiaviCarta(chiaveMadre, uidHex), ...(chiaveFile ? { file: chiaveFile } : {}) };
   const blocco = Buffer.alloc(16);
   blocco[0] = 0xc7;
   Buffer.from(uidHex, 'hex').copy(blocco, 1);

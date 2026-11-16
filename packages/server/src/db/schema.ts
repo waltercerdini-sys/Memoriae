@@ -340,19 +340,34 @@ export const integrityAnchors = pgTable('integrity_anchors', {
  * Carta MEMORIAE (NFC). Il chip non contiene dati personali: a ogni lettura produce un collegamento
  * firmato (UID e contatore cifrati). Una carta può solo avvisare le persone di fiducia, mai aprire la cassaforte.
  */
-export const cardStatusEnum = pgEnum('card_status', ['spedita', 'attiva', 'disattivata']);
+export const cardStatusEnum = pgEnum('card_status', ['spedita', 'attiva', 'disattivata', 'magazzino']);
+
+/** Lotto di carte prodotte e programmate dal fornitore (per esempio Cardnology) con una chiave comune. */
+export const cardBatches = pgTable('card_batches', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  supplier: text('supplier'),
+  quantity: integer('quantity').notNull(),
+  createdAt: createdAt(),
+});
+
 export const cards = pgTable('cards', {
   id: uuid('id').primaryKey().defaultRandom(),
-  /** UID del chip, 14 caratteri esadecimali. */
-  uid: text('uid').notNull(),
-  vaultId: uuid('vault_id').notNull().references(() => vaults.id, { onDelete: 'cascade' }),
+  /** UID del chip, 14 caratteri esadecimali. Vuoto per le carte di un lotto non ancora consegnato dal fornitore. */
+  uid: text('uid'),
+  /** Vuoto finché la carta è in magazzino. */
+  vaultId: uuid('vault_id').references(() => vaults.id, { onDelete: 'cascade' }),
   orderId: uuid('order_id'),
+  /** Lotto del fornitore: la chiave «file» è quella del lotto. Vuoto = carta programmata da noi, chiave per UID. */
+  batchId: uuid('batch_id').references(() => cardBatches.id),
+  /** Codice del QR di riserva stampato sulla carta. */
+  qrCode: text('qr_code'),
   status: cardStatusEnum('status').notNull().default('spedita'),
   /** Ultimo contatore di letture accettato: una lettura copiata o ripetuta non vale. */
   lastCounter: integer('last_counter').notNull().default(-1),
   activatedAt: timestamp('activated_at', { withTimezone: true }),
   createdAt: createdAt(),
-}, (t) => [uniqueIndex('cards_uid_idx').on(t.uid)]);
+}, (t) => [uniqueIndex('cards_uid_idx').on(t.uid), uniqueIndex('cards_qr_idx').on(t.qrCode)]);
 
 export const cardOrderStatusEnum = pgEnum('card_order_status', ['in-attesa', 'pagato', 'spedito', 'annullato']);
 /** Ordini di carte. L'indirizzo serve solo alla spedizione e resta separato dalla cassaforte. */

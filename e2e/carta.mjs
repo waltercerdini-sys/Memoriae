@@ -1,11 +1,12 @@
 /**
  * Prova della Carta MEMORIAE: ordine con indirizzo, preparazione e spedizione (Operatore),
- * attivazione, lettura da parte di chi la trova, avviso, disattivazione. Senza carta vera:
+ * lotto del fornitore (codici QR, chiavi, file di consegna, magazzino), abbinamento con il codice stampato,
+ * attivazione, lettura da parte di chi la trova (chip e QR di riserva), avviso, disattivazione. Senza carta vera:
  * in prova l'Operatore genera il collegamento che scriverebbe il chip.
  * Prerequisiti: npm run prova. Uso: node e2e/carta.mjs [cartella-screenshot]
  */
 import { createRequire } from 'node:module';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const OUT = process.argv[2] ?? 'e2e-screenshot';
@@ -58,20 +59,42 @@ await page.getByText('Abbiamo ricevuto l\'ordine della Carta MEMORIAE').waitFor(
 await accedi();
 step('ordine pagato con l\'indirizzo di spedizione');
 
-// Operatore: chiavi, abbinamento, spedizione.
+// Operatore: nuovo lotto per il fornitore, consegna (file con gli UID), magazzino.
 await page.getByRole('tab', { name: 'Operatore' }).click();
 await page.getByRole('heading', { name: 'Carte da spedire (1)' }).waitFor();
+const LOTTO = `Prova ${Date.now()}`;
+await page.getByLabel('Nome del lotto').fill(LOTTO);
+await page.getByLabel('Numero di carte').fill('2');
+await page.getByRole('button', { name: 'Crea il lotto' }).click();
+const lotto = page.locator('.lotto-carte', { hasText: LOTTO });
+await lotto.getByText('Chiave SDM File Read (chiave 2), solo per questo lotto').waitFor();
+await shot(page, '03-lotto');
+const [download] = await Promise.all([page.waitForEvent('download'), lotto.getByRole('button', { name: 'Scarica i codici dei QR (CSV)' }).click()]);
+const codici = readFileSync(await download.path(), 'utf8')
+  .replace(/^\uFEFF/, '')
+  .split(/\r?\n/)
+  .slice(1)
+  .map((r) => r.split(';'));
+if (codici.length !== 2 || !/^[2-9A-Z]{4}-[2-9A-Z]{4}-[2-9A-Z]{4}$/.test(codici[0][1])) throw new Error('CSV dei codici non valido');
+// Il file che rimanda il fornitore alla consegna: UID e codice di ogni carta.
+const UID2 = `04${UID.slice(2, 12)}FF`;
+const consegna = `UID;Codice\r\n${UID};${codici[0][1]}\r\n${UID2};${codici[1][1]}\r\n`;
+await lotto.locator('input[type=file]').setInputFiles({ name: 'consegna.csv', mimeType: 'text/csv', buffer: Buffer.from(consegna) });
+await page.getByText(new RegExp(`Lotto «${LOTTO}»: 2 carte registrate`)).waitFor();
+await lotto.getByText('2 carte ordinate · 2 consegnate · 2 in magazzino · 0 assegnate').waitFor();
+step('lotto creato, codici QR scaricati, file del fornitore importato: 2 carte in magazzino');
+
+// Ordine: si prende una carta dal magazzino e si scrive il codice stampato.
 await page.locator('.ordine-carte').getByText('Giulia Bianchi').waitFor();
 await page.locator('.ordine-carte').getByText('c/o Casa anziani Al Lago').waitFor();
-await page.getByLabel('UID della carta').fill(UID.toLowerCase());
-await page.getByRole('button', { name: 'Chiavi' }).click();
-await page.getByText(`Da scrivere nella carta ${UID}`).waitFor();
-await shot(page, '03-operatore');
+await page.getByLabel('Codice della carta (o UID)').fill(codici[0][1].toLowerCase());
+await shot(page, '04-operatore');
 await page.getByRole('button', { name: "Abbina all'ordine" }).click();
 await page.getByLabel('Numero di spedizione (facoltativo)').fill('99.00.123456.78901234');
 await page.getByRole('button', { name: 'Spedito' }).click();
 await page.getByRole('heading', { name: 'Carte da spedire (0)' }).waitFor();
-step('carta abbinata all\'ordine e spedita');
+await lotto.getByText('2 carte ordinate · 2 consegnate · 1 in magazzino · 1 assegnate').waitFor();
+step('carta del magazzino abbinata con il codice stampato e spedita');
 
 let ultimo = null;
 const nuovoTocco = async () => {
@@ -88,7 +111,7 @@ const attiva = await nuovoTocco();
 const p2 = await context.newPage();
 await p2.goto(attiva);
 await p2.getByRole('heading', { name: 'Carta attivata ✓' }).waitFor();
-await shot(p2, '04-attivata');
+await shot(p2, '05-attivata');
 // Lo stesso collegamento una seconda volta non vale.
 await p2.goto(attiva);
 await p2.getByRole('heading', { name: 'Avvicina di nuovo la carta' }).waitFor();
@@ -101,11 +124,21 @@ const s = await sconosciuto.newPage();
 await s.goto(await nuovoTocco());
 await s.getByRole('heading', { name: 'Questa carta appartiene a Rosa B.' }).waitFor();
 await s.getByLabel('Messaggio (facoltativo)').fill('Trovata sul treno per Lugano');
-await shot(s, '05-trovata');
+await shot(s, '06-trovata');
 await s.getByRole('button', { name: 'Avvisa le persone di fiducia' }).click();
 await s.getByText(/Grazie!/).waitFor();
-await shot(s, '06-avvisato');
+await shot(s, '07-avvisato');
 step('chi la trova vede «Rosa B.» e manda l\'avviso');
+
+// Telefono senza NFC: il QR di riserva stampato sulla carta porta alla stessa pagina.
+const qr = await sconosciuto.newPage();
+await qr.goto(codici[0][2]);
+await qr.getByRole('heading', { name: 'Questa carta appartiene a Rosa B.' }).waitFor();
+// Il QR di una carta ancora in magazzino non dice nulla.
+await qr.goto(codici[1][2]);
+await qr.getByRole('heading', { name: 'Carta non ancora consegnata' }).waitFor();
+await qr.close();
+step('QR di riserva: funziona anche senza NFC; quello di una carta in magazzino non dice nulla');
 
 // Carta persa: disattivata.
 await page.getByRole('tab', { name: 'Protezione' }).click();

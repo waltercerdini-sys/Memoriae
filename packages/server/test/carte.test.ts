@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildApp } from '../src/app';
-import { simulaLettura } from '../src/cards/sun';
+import { chiaveFileLotto, simulaLettura } from '../src/cards/sun';
 import type { Database } from '../src/db/client';
 import { MemoryMailer } from '../src/mail/mailer';
 import { MemoryBlobStore } from '../src/storage/blobs';
@@ -102,5 +102,73 @@ describe('Carta MEMORIAE (NFC)', () => {
     expect((await tocco(null, '04DE5F1EACC041', 10)).esito).toBe('disattivata');
     // Carta sconosciuta.
     expect((await tocco(null, '04AAAAAAAAAAAA', 1)).esito).toBe('non-valida');
+  });
+
+  it('lotto del fornitore: codici QR, chiavi, file di consegna, magazzino, abbinamento con il codice e QR di riserva', async () => {
+    const lia = await utente('Lia Conti', 'lia.c@example.ch');
+    const op = await utente('Oscar Operatore', 'oscar.c@example.ch');
+    const ugo = await utente('Ugo Conti', 'ugo.c@example.ch');
+    const ugoId = randomUUID();
+    await req(lia, 'POST', '/v1/cassaforte/persone', { id: ugoId, ruolo: 'fiduciario', nome: 'Ugo Conti', email: ugo.email });
+    await req(lia, 'POST', `/v1/cassaforte/persone/${ugoId}/invito`);
+    await req(ugo, 'POST', '/v1/inviti/accetta', { token: inviteToken(ugo.email) });
+
+    // 1. Nuovo lotto: 3 carte, con i codici dei QR già pronti.
+    const { id: lotto } = (await req(op, 'POST', '/v1/operatore/carte/lotti', { nome: 'Cardnology dicembre', fornitore: 'Cardnology', quantita: 3 })).json();
+    const f = (await req(op, 'GET', `/v1/operatore/carte/lotti/${lotto}/fornitore`)).json();
+    expect(f.chiaveFile).toBe(chiaveFileLotto(Buffer.from(chiaveCarte), lotto).toString('hex').toUpperCase());
+    expect(f.codici).toHaveLength(3);
+    expect(f.codici[0].codice).toMatch(/^[2-9A-Z]{4}-[2-9A-Z]{4}-[2-9A-Z]{4}$/);
+    expect(f.codici[0].qr).toBe(`http://x/c?q=${f.codici[0].codice.replace(/-/g, '')}`);
+
+    // Prima della consegna il codice non si può abbinare.
+    const ord = await req(lia, 'POST', '/v1/carte/ordina', { quantita: 1, regalo: false });
+    const orderId = new URL(ord.json().url).searchParams.get('ordine-carte')!;
+    await req(lia, 'POST', `/v1/carte/ordini/${orderId}/paga-prova`, { nome: 'Lia Conti', riga1: 'Via Lago 3', cap: '6900', citta: 'Lugano', paese: 'CH' });
+    expect((await req(op, 'POST', `/v1/operatore/carte/ordini/${orderId}/carte`, { codice: f.codici[0].codice })).statusCode).toBe(409);
+
+    // 2. Il file del fornitore: intestazione, righe in ordine diverso, una riga sbagliata.
+    const uids = ['04B0000000AA01', '04B0000000AA02', '04B0000000AA03'];
+    const csv = [
+      'UID;Codice',
+      `${uids[0]};${f.codici[0].codice}`,
+      `${f.codici[1].qr},04:B0:00:00:00:AA:02`,
+      `${uids[2]};ZZZZ-ZZZZ-ZZZZ`,
+      '',
+    ].join('\r\n');
+    const imp = (await req(op, 'POST', `/v1/operatore/carte/lotti/${lotto}/importa`, { csv })).json();
+    expect(imp).toMatchObject({ registrate: 2, gia: 0, nErrori: 1 });
+    expect(imp.errori[0]).toMatchObject({ riga: 4 });
+    // Ripetere l'importazione non fa danni.
+    expect((await req(op, 'POST', `/v1/operatore/carte/lotti/${lotto}/importa`, { csv })).json()).toMatchObject({ registrate: 0, gia: 2 });
+    const lotti = (await req(op, 'GET', '/v1/operatore/carte/lotti')).json().lotti;
+    expect(lotti.find((l: { id: string }) => l.id === lotto)).toMatchObject({ quantita: 3, registrate: 2, inMagazzino: 2, assegnate: 0 });
+
+    // Una carta in magazzino avvicinata al telefono: non appartiene ancora a nessuno.
+    const k = chiaveFileLotto(Buffer.from(chiaveCarte), lotto);
+    const toccoLotto = (u: TestUser | null, uid: string, ctr: number) => {
+      const l = simulaLettura(Buffer.from(chiaveCarte), uid, ctr, k);
+      return req(u, 'GET', `/v1/carta?picc=${l.picc}&cmac=${l.cmac}`).then((r) => r.json());
+    };
+    expect((await toccoLotto(null, uids[0]!, 1)).esito).toBe('magazzino');
+    // Con la chiave per UID (quella delle carte programmate da noi) non vale.
+    expect((await tocco(null, uids[0]!, 2)).esito).toBe('non-valida');
+
+    // 3. Abbinamento con il codice stampato (anche senza trattini e in minuscolo).
+    expect((await req(op, 'POST', `/v1/operatore/carte/ordini/${orderId}/carte`, { codice: f.codici[0].codice.replace(/-/g, '').toLowerCase() })).statusCode).toBe(200);
+    expect((await req(op, 'POST', `/v1/operatore/carte/ordini/${orderId}/spedito`, {})).statusCode).toBe(200);
+    expect((await req(lia, 'GET', '/v1/carte')).json().carte[0]).toMatchObject({ finale: 'AA01', stato: 'spedita' });
+    expect((await req(op, 'GET', '/v1/operatore/carte/lotti')).json().lotti.find((l: { id: string }) => l.id === lotto)).toMatchObject({ inMagazzino: 1, assegnate: 1 });
+
+    // 4. Attivazione con il chip, poi un passante con il QR di riserva (niente contatore, avvisi limitati).
+    expect((await toccoLotto(lia, uids[0]!, 3)).esito).toBe('attivata');
+    expect((await toccoLotto(null, uids[0]!, 3)).esito).toBe('ripetuta');
+    const qr = (await req(null, 'GET', `/v1/carta?q=${f.codici[0].codice.replace(/-/g, '')}`)).json();
+    expect(qr).toMatchObject({ esito: 'valida', nome: 'Lia C.' });
+    expect((await req(null, 'GET', `/v1/carta?q=${f.codici[0].codice.replace(/-/g, '')}`)).json().esito).toBe('valida');
+    expect((await req(null, 'POST', '/v1/carta/avvisa', { token: qr.token })).json()).toEqual({ avvisati: 1 });
+    expect((await req(null, 'GET', '/v1/carta?q=ABCD-EFGH-JKMN')).json().esito).toBe('non-valida');
+    // Il QR di una carta in magazzino non dice nulla del proprietario.
+    expect((await req(null, 'GET', `/v1/carta?q=${f.codici[1].codice}`)).json().esito).toBe('magazzino');
   });
 });
