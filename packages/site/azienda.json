@@ -14,8 +14,8 @@
   "email": "[indirizzo e-mail di contatto]",
   "telefono": "[numero di telefono]",
   "iva": "[numero IVA oppure: non iscritta al registro IVA]",
-  "dominio": "[dominio del sito]",
-  "appUrl": "http://localhost:5173",
+  "dominio": "memoriae.ch",
+  "appUrl": "https://app.memoriae.ch",
   "foro": "Lugano",
   "aggiornatoIl": "12 novembre 2026"
 }

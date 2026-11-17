@@ -3,8 +3,10 @@ import { resolve } from 'node:path';
 import { defineConfig } from 'vite';
 
 /** Sostituisce {{chiave}} con i dati di azienda.json; i valori ancora da completare restano evidenziati. */
-function datiAzienda() {
+function datiAzienda(inProva) {
   const dati = JSON.parse(readFileSync(resolve(import.meta.dirname, 'azienda.json'), 'utf8'));
+  // In prova i pulsanti portano all'app sul computer, nel sito pubblicato a app.memoriae.ch.
+  if (inProva) dati.appUrl = process.env.MEMORIAE_APP_URL ?? 'http://localhost:5173';
   const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   return {
     name: 'dati-azienda',
@@ -18,8 +20,8 @@ function datiAzienda() {
   };
 }
 
-export default defineConfig({
-  plugins: [datiAzienda()],
+export default defineConfig(({ command }) => ({
+  plugins: [datiAzienda(command === 'serve')],
   build: {
     rollupOptions: {
       input: {
@@ -30,4 +32,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));
