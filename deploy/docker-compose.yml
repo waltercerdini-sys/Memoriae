@@ -1,0 +1,60 @@
+# MEMORIAE sul server: database, app e Caddy (HTTPS automatico con Let's Encrypt).
+# Si usa dalla cartella deploy:  docker compose up -d --build
+# Le impostazioni stanno in deploy/.env (creato da installa.sh, mai nel repository).
+services:
+  db:
+    image: postgres:16.6
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: memoriae
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?manca DB_PASSWORD in deploy/.env}
+      POSTGRES_DB: memoriae
+    volumes:
+      - ./dati/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U memoriae"]
+      interval: 5s
+      retries: 20
+
+  app:
+    build:
+      context: ..
+      args:
+        VITE_GUIDA_URL: ${VITE_GUIDA_URL:-}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://memoriae:${DB_PASSWORD}@db:5432/memoriae
+      HOST: 0.0.0.0
+      PORT: "3000"
+      BLOB_DIR: /data/file
+      CUSTODY_KEY_FILE: /data/custodia.key
+      MAIL_OUTBOX: /data/posta.log
+    volumes:
+      - ./dati/app:/data
+      - statici:/srv
+    depends_on:
+      db:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2.8.4
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      APP_DOMINIO: ${APP_DOMINIO:?manca APP_DOMINIO in deploy/.env}
+      SITO_DOMINIO: ${SITO_DOMINIO:?manca SITO_DOMINIO in deploy/.env}
+      CADDY_EMAIL: ${CADDY_EMAIL:?manca CADDY_EMAIL in deploy/.env}
+    volumes:
+      - ./${CADDYFILE:-Caddyfile}:/etc/caddy/Caddyfile:ro
+      - ./anteprima.caddy:/etc/caddy/anteprima.caddy:ro
+      - statici:/srv:ro
+      - ./dati/caddy:/data
+    depends_on:
+      - app
+
+volumes:
+  statici:

@@ -1,0 +1,37 @@
+# Produzione: app e sito pubblici.
+{
+	email {$CADDY_EMAIL}
+}
+
+(sicurezza) {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+}
+
+{$APP_DOMINIO} {
+	import sicurezza
+	handle /v1/* {
+		reverse_proxy app:3000
+	}
+	handle {
+		root * /srv/app
+		try_files {path} /index.html
+		file_server
+	}
+}
+
+www.{$SITO_DOMINIO} {
+	redir https://{$SITO_DOMINIO}{uri} permanent
+}
+
+{$SITO_DOMINIO} {
+	import sicurezza
+	root * /srv/sito
+	try_files {path} {path}.html
+	file_server
+}

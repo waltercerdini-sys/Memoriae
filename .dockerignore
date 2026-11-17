@@ -1,0 +1,12 @@
+node_modules
+**/node_modules
+**/dist
+.git
+data
+deploy/dati
+deploy/.env
+deploy/anteprima.caddy
+e2e-screenshot
+coverage
+.env
+*.log
