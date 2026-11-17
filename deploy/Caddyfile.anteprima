@@ -26,6 +26,10 @@
 		root * /srv/app
 		file_server
 	}
+	# Icone che Safari chiede da solo: senza nome e password, altrimenti ripropone la finestra.
+	handle /favicon.ico /apple-touch-icon* /robots.txt {
+		respond 404
+	}
 	handle {
 		import /etc/caddy/anteprima.caddy
 		root * /srv/app
@@ -40,8 +44,17 @@ www.{$SITO_DOMINIO} {
 
 {$SITO_DOMINIO} {
 	import sicurezza
-	import /etc/caddy/anteprima.caddy
-	root * /srv/sito
-	try_files {path} {path}.html
-	file_server
+	handle /assets/* {
+		root * /srv/sito
+		file_server
+	}
+	handle /favicon.ico /apple-touch-icon* /robots.txt {
+		respond 404
+	}
+	handle {
+		import /etc/caddy/anteprima.caddy
+		root * /srv/sito
+		try_files {path} {path}.html
+		file_server
+	}
 }
