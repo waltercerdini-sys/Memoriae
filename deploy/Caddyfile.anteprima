@@ -27,7 +27,8 @@
 		file_server
 	}
 	# Icone che Safari chiede da solo: senza nome e password, altrimenti ripropone la finestra.
-	handle /favicon.ico /apple-touch-icon* /robots.txt {
+	@icone path /favicon.ico /apple-touch-icon* /robots.txt
+	handle @icone {
 		respond 404
 	}
 	handle {
@@ -48,7 +49,8 @@ www.{$SITO_DOMINIO} {
 		root * /srv/sito
 		file_server
 	}
-	handle /favicon.ico /apple-touch-icon* /robots.txt {
+	@icone path /favicon.ico /apple-touch-icon* /robots.txt
+	handle @icone {
 		respond 404
 	}
 	handle {
