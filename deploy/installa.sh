@@ -27,9 +27,10 @@ grep -q memoriae_github "$HOME/.ssh/config" 2>/dev/null || cat >> "$HOME/.ssh/co
 Host github.com
   IdentityFile $CHIAVE_GITHUB
   IdentitiesOnly yes
+  StrictHostKeyChecking accept-new
 CONF
 chmod 600 "$HOME/.ssh/config"
-ssh-keyscan -q github.com >> "$HOME/.ssh/known_hosts" 2>/dev/null
+ssh-keyscan -q github.com >> "$HOME/.ssh/known_hosts" 2>/dev/null || true
 github_ok() { local out; out=$(ssh -o BatchMode=yes -T git@github.com 2>&1 || true); grep -q "successfully authenticated" <<<"$out"; }
 if ! github_ok; then
   echo
