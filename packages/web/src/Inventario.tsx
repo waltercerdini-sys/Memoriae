@@ -17,6 +17,7 @@ import { Fascicolo } from './Fascicolo';
 import { LibroRicordi } from './LibroRicordi';
 import { CartaMemoriae } from './CartaMemoriae';
 import { useAiuto, type PaginaAiuto } from './aiuto';
+import { riempiEsempio } from './esempio';
 import { sincronizzaRilascio, type StatoRilascio } from './rilascio';
 import { aggiornaVoce, aggiungiDocumenti, aggiungiVoce, documentiDi, leggiVoci, MAX_DOCUMENTI, rimuoviDocumento, scaricaFile, sostituisciDocumento, type AzioneAccount, type ContenutoVoce, type Voce } from './vault';
 
@@ -101,6 +102,13 @@ export function Inventario({
   const [esito, setEsito] = useState<string | null>(null);
 
   /** Ricarica voci e persone e prepara i pacchetti del rilascio. */
+  // Anteprima: «Riempi con un esempio» per chi prova (tester, giornalisti).
+  const [anteprima, setAnteprima] = useState(false);
+  const [riempio, setRiempio] = useState(false);
+  useEffect(() => {
+    api.stato().then((r) => setAnteprima(r.anteprima)).catch(() => {});
+  }, []);
+
   const ricarica = useCallback(async () => {
     try {
       const [vs, ps] = await Promise.all([leggiVoci(vaultKey), api.persone().then((r) => r.persone)]);
@@ -643,6 +651,29 @@ export function Inventario({
               <button className="primario" onClick={() => setVista({ tipo: 'trova' })}>
                 Trova tutto
               </button>
+              {anteprima && (
+                <>
+                  <button
+                    className="secondario"
+                    disabled={riempio}
+                    onClick={async () => {
+                      setRiempio(true);
+                      try {
+                        await riempiEsempio(vaultKey);
+                        await ricarica();
+                      } finally {
+                        setRiempio(false);
+                      }
+                    }}
+                  >
+                    {riempio ? 'Preparo l\'esempio…' : 'Riempi con un esempio'}
+                  </button>
+                  <p className="tenue">
+                    Solo in questa versione di prova: aggiunge alcune voci, due persone inventate e una lettera, per vedere subito come funziona
+                    MEMORIAE. Nessun invito parte. Puoi cancellare tutto quando vuoi.
+                  </p>
+                </>
+              )}
             </div>
           )}
           {vociElenco && vociElenco.length > 0 && (

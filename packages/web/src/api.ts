@@ -355,6 +355,7 @@ export const api = {
   infoBlocco: (token: string) => call<{ richiedente: string; ambito: Ambito; stato: StatoCaso; attesaFinoAl: string | null }>('GET', `/v1/blocca/${token}`),
   bloccaDaEmail: (token: string) => call<{ ok: true }>('POST', `/v1/blocca/${token}`),
   operatore: () => call<{ operatore: true; prova: boolean }>('GET', '/v1/operatore'),
+  stato: () => call<{ anteprima: boolean }>('GET', '/v1/stato'),
   casiOperatore: () => call<{ casi: CasoOperatore[] }>('GET', '/v1/operatore/casi'),
   catalogoDaRicontrollare: () => call<{ daRicontrollare: SchedaDaRicontrollare[] }>('GET', '/v1/operatore/catalogo'),
   schedaRicontrollata: (slug: string) => call<{ ok: true }>('POST', `/v1/operatore/catalogo/${slug}/ricontrollato`),

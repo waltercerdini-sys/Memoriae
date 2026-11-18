@@ -35,9 +35,11 @@ export interface AppOptions {
   payments?: PaymentProvider;
   /** Chiave madre delle carte NFC (da cui si ricavano le chiavi di ogni chip). Predefinito: casuale. */
   chiaveCarte?: Uint8Array;
+  /** Anteprima (non produzione): l'app può offrire «Riempi con un esempio». Predefinito: sì. */
+  anteprima?: boolean;
 }
 
-export function buildApp({ db, passkeys, blobs, mailer, custody, appOrigin, cookieSecure, logLevel = 'info', activation, payments, chiaveCarte }: AppOptions): FastifyInstance {
+export function buildApp({ db, passkeys, blobs, mailer, custody, appOrigin, cookieSecure, logLevel = 'info', activation, payments, chiaveCarte, anteprima = true }: AppOptions): FastifyInstance {
   // Nei log solo metodo, percorso e stato: mai corpi delle richieste né dati personali.
   const app = Fastify({ logger: { level: logLevel }, bodyLimit: 1024 * 1024 });
 
@@ -57,6 +59,9 @@ export function buildApp({ db, passkeys, blobs, mailer, custody, appOrigin, cook
       return reply.code(503).send({ stato: 'database non raggiungibile' });
     }
   });
+
+  /** Stato pubblico del servizio: in anteprima l'app mostra gli strumenti di prova. */
+  app.get('/v1/stato', async () => ({ anteprima }));
 
   /** Catalogo fornitori: unico contenuto pubblico di MEMORIAE. */
   app.get('/v1/fornitori', async () => {

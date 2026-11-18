@@ -65,6 +65,7 @@ const app = buildApp({
   appOrigin: config.APP_ORIGIN,
   cookieSecure: config.COOKIE_SECURE,
   logLevel: config.LOG_LEVEL,
+  anteprima: config.NODE_ENV !== 'production',
 });
 
 // Lavori periodici (promemoria, avvisi, rilasci a fine attesa).
