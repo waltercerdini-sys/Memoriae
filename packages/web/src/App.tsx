@@ -33,7 +33,7 @@ export function App() {
     if (!token) return;
     api
       .invito(token)
-      .then((r) => setInvito({ token, proprietario: r.proprietario, ruolo: r.ruolo }))
+      .then((r) => setInvito({ token, proprietario: r.proprietario, ruolo: r.ruolo, nome: r.nome }))
       .catch(() => setErrore('Questo invito non è più valido: chiedi a chi te l\'ha mandato di inviarlo di nuovo.'));
   }, []);
 
@@ -209,7 +209,27 @@ export function App() {
         {pagamento && <PagamentoProva id={pagamento} />}
         {ordineCarte && <PagamentoCarteProva id={ordineCarte} />}
         {!inPagamento && s.nome === 'caricamento' && <p className="tenue">Un momento…</p>}
-        {invito && s.nome !== 'inventario' && (
+        {invito && utente && s.nome === 'accesso' && (
+          // Su questo dispositivo è già entrato qualcuno: l'invito potrebbe essere per un'altra persona.
+          <div className="riquadro evidenza invito-altro">
+            <h2>Un invito per {invito.nome ?? 'un\'altra persona'}</h2>
+            <p>
+              {invito.proprietario === utente.nome
+                ? `Questo invito l'hai mandato tu, a ${invito.nome ?? 'una persona'}. Va aperto sul suo telefono o computer.`
+                : `${invito.proprietario} ha scelto ${invito.nome ?? 'questa persona'} come ${invito.ruolo === 'destinatario' ? 'destinatario' : 'persona di fiducia'}.`}
+            </p>
+            <p>
+              Su questo dispositivo è aperta la cassaforte di <strong>{utente.nome}</strong>.
+            </p>
+            <button className="primario" onClick={esci} disabled={occupato}>
+              Non sono {utente.nome}: esci e continua
+            </button>
+            {invito.proprietario !== utente.nome && (
+              <p className="tenue">Sei {utente.nome}? Apri la tua cassaforte qui sotto: poi potrai accettare l'invito.</p>
+            )}
+          </div>
+        )}
+        {invito && !utente && s.nome !== 'inventario' && (
           <div className="riquadro evidenza">
             <h2>{invito.proprietario} ti ha scelto</h2>
             <p>

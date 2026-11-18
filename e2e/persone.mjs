@@ -110,5 +110,25 @@ const esito = await R.page.locator('.esito').first().textContent();
 await R.shot('05-pacchetti');
 step(`Rosa: ${esito.trim()}`);
 
+// --- Il link d'invito aperto sul dispositivo di Rosa (già entrata) ---------
+// Non deve confondersi con «Apri la tua cassaforte»: dice di chi è il dispositivo e propone di uscire.
+const emailMarco = `marco+${t}@example.ch`;
+await R.page.getByRole('button', { name: 'Aggiungi una persona' }).click();
+await R.page.getByRole('radio', { name: /^Persona di fiducia/ }).check();
+await R.page.getByLabel('Nome', { exact: true }).fill('Marco Neri');
+await R.page.getByRole('textbox', { name: 'E-mail' }).fill(emailMarco);
+await R.page.getByRole('button', { name: 'Salva' }).click();
+await R.page.getByText('Invito inviato').waitFor();
+const mailMarco = readFileSync(OUTBOX, 'utf8').trim().split('\n').map((l) => JSON.parse(l)).reverse().find((m) => m.to === emailMarco);
+await R.page.goto(mailMarco.text.match(/https?:\/\/\S+\?invito=[A-Za-z0-9_-]{43}/)[0]);
+await R.page.getByRole('heading', { name: 'Un invito per Marco Neri' }).waitFor();
+await R.page.getByText("Questo invito l'hai mandato tu, a Marco Neri").waitFor();
+await R.page.getByText('Su questo dispositivo è aperta la cassaforte di').waitFor();
+await R.shot('06-invito-su-altro-dispositivo');
+await R.page.getByRole('button', { name: 'Non sono Rosa Bianchi: esci e continua' }).click();
+await R.page.getByRole('heading', { name: 'Rosa Bianchi ti ha scelto' }).waitFor();
+await R.page.getByRole('button', { name: 'Crea la tua cassaforte' }).waitFor();
+step('link d\'invito su un dispositivo già usato: messaggio chiaro, «Esci» porta al nuovo utente');
+
 await browser.close();
 console.log('Persone e volontà: prova superata');

@@ -36,6 +36,8 @@ export interface InvitoInSospeso {
   token: string;
   proprietario: string;
   ruolo: Ruolo;
+  /** A chi è rivolto l'invito (il nome scritto dal proprietario). */
+  nome?: string;
 }
 
 export function Inventario({
@@ -471,7 +473,19 @@ export function Inventario({
           </button>
         </div>
       ))}
-      {invito && (
+      {invito && invito.proprietario === utente.nome && (
+        <div className="riquadro evidenza">
+          <h2>Questo invito l'hai mandato tu</h2>
+          <p>
+            È per {invito.nome ?? 'una delle tue persone'}: va aperto sul suo telefono o computer. Per provarlo tu, aprilo in una finestra privata
+            del browser, oppure tocca «Esci» in alto.
+          </p>
+          <button className="link" onClick={() => onInvitoGestito?.()}>
+            Chiudi
+          </button>
+        </div>
+      )}
+      {invito && invito.proprietario !== utente.nome && (
         <div className="riquadro evidenza">
           <h2>{invito.proprietario} ti ha scelto</h2>
           <p>
